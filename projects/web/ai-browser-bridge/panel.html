@@ -10,11 +10,12 @@
       <div class="feedback-heading"><strong id="status-title">尚未连接</strong><span id="countdown" hidden></span></div>
       <p id="status">输入问题即可开始。首次发送会自动准备新对话。</p>
       <progress id="connection-progress" max="10" value="0" aria-label="连接检查已用时间" hidden></progress>
-      <div id="recovery" class="row" hidden><button id="retry" type="button">重新检查连接</button><button id="focus-selected" type="button">打开所选官网</button></div>
+      <div id="recovery" class="row" hidden><button id="retry" type="button">重新检查连接</button><button id="focus-selected" type="button">打开并连接官网</button></div>
     </section>
+    <section id="build-warning" class="build-warning" role="status" hidden><p id="build-message"></p><button id="reload-extension" type="button">载入本机新版</button><p>读取已安装扩展文件夹中的新版；保存对话与草稿后重载，不会发送问题。生成期间请先等回复结束。</p></section>
     <details class="connection"><summary id="connection-summary">选择与连接官网</summary>
       <p>对应 AI 官网标签页需要保持打开，可以放在后台。切换 AI 保留对话。</p><p id="extension-version"></p><p id="scan-result">连接检查不会发送或重发问题。</p>
-      <div class="row"><button id="open">打开对话 / 登录</button><button id="refresh">授权并查找标签页</button></div>
+      <div class="row"><button id="open">打开并连接官网</button><button id="refresh">授权并查找标签页</button></div>
       <label for="tabs">明确选择要操作的官网对话</label><select id="tabs"><option value="">先查找已打开的官网</option></select>
       <div class="row"><button id="bind">绑定并检查</button><button id="focus">查看官网</button></div>
       <details><summary>适配诊断 / 校准</summary><p>各平台仍在适配中。若匹配失败，可填写官网元素的 CSS 选择器后重新绑定。回复选择器必须只匹配助手回复，不能包含用户消息。</p><label>输入框<input id="selector-input" placeholder="默认适配器"></label><label>发送按钮<input id="selector-send" placeholder="默认适配器"></label><label>每条助手回复<input id="selector-answer" placeholder="默认适配器"></label><label>生成时的停止按钮<input id="selector-stop" placeholder="可选；没有时不推断完成"></label><pre id="diagnostics">未检查</pre></details>

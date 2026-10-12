@@ -1,0 +1,39 @@
+/* Actual MV3 reload of an isolated test copy; never accesses a personal browser profile. */
+const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'../../..'),qa=path.join(root,'.qa/runtime-update');fs.mkdirSync(qa,{recursive:true});
+const files=['manifest.json','providers.js','background.js','bridge.js','panel.html','panel.js','panel.css','theme.css','workbook-sites.js','site-bridge.js','panel-mode.js'];
+const extension=fs.mkdtempSync(path.join(qa,'extension-'));for(const file of files)fs.copyFileSync(path.join(__dirname,file),path.join(extension,file));
+const manifest=JSON.parse(fs.readFileSync(path.join(extension,'manifest.json')));manifest.version='0.2.0';manifest.host_permissions=[...new Set([...manifest.host_permissions,...manifest.optional_host_permissions])];fs.writeFileSync(path.join(extension,'manifest.json'),JSON.stringify(manifest));
+const fixture=`<!doctype html><meta charset=utf-8><title>DS offline fixture</title><textarea id=chat-input></textarea><button aria-label="Send message" id=send>Send</button><button aria-label="Stop generating" id=stop hidden>Stop</button><script>window.sends=[];const stop=document.querySelector('#stop');document.querySelector('#send').onclick=()=>{sends.push(document.querySelector('#chat-input').value);document.querySelector('#chat-input').value='';stop.hidden=false;const el=document.createElement('div');el.className='ds-assistant-message-main-content';document.body.append(el);setTimeout(()=>el.textContent='隔离夹具第一段',100);setTimeout(()=>{el.textContent='隔离夹具完成 '+sends.length;stop.hidden=true;},500);};</script>`;
+(async()=>{
+ const context=await chromium.launchPersistentContext(fs.mkdtempSync(path.join(qa,'profile-')),{channel:'msedge',headless:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
+ try{
+  await context.setOffline(true);
+  await context.route('**/*',r=>{const u=new URL(r.request().url());if(u.protocol==='chrome-extension:')return r.continue();if(u.hostname==='chat.deepseek.com')return r.fulfill({contentType:'text/html',body:fixture});if(u.hostname!=='zhouwu97.github.io')return r.abort();let file=path.resolve(root,'.'+decodeURIComponent(u.pathname.replace(/^\/web-kaifa\//,'/')));if(fs.existsSync(file)&&fs.statSync(file).isDirectory())file=path.join(file,'index.html');if(!file.startsWith(root+path.sep)||!fs.existsSync(file))return r.fulfill({status:404,body:'missing'});return r.fulfill({contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.svg':'image/svg+xml'}[path.extname(file)]||'text/plain',body:fs.readFileSync(file)});});
+  const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');const id=new URL(worker.url()).host;
+  const errors=[];context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
+  const ai=await context.newPage();const url='https://chat.deepseek.com/a/chat/s/update-fixture';await ai.goto(url);
+  const panel=await context.newPage();await panel.goto(`chrome-extension://${id}/panel.html`);await panel.evaluate(url=>localStorage.setItem('workbook-bridge-conversations-v1',JSON.stringify({version:1,active:'ds',sessions:{ds:{records:[{role:'user',text:'保留的历史',provider:'ds'}],draft:'重载前草稿',tab:'999',url,options:[{value:'999',text:'失效旧标签'}],selectors:{}}}})),url);await panel.close();
+  const page=await context.newPage();page.setDefaultTimeout(12000);await page.goto('https://zhouwu97.github.io/web-kaifa/#/lesson/go-01');await page.locator('body.assistant-connected').waitFor();let ui=page.frameLocator('#assistant-bridge-frame');await ui.locator('#send:enabled').waitFor();await ui.locator('#build-warning').waitFor();assert.match(await ui.locator('#build-message').textContent(),/已加载扩展 v0.2.0/);
+  assert.equal(await ui.locator('#question').inputValue(),'重载前草稿');await ui.locator('#question').fill('重载后草稿');
+  // Loading a new disk manifest is exactly what the panel button must accomplish.
+  manifest.version='0.2.3';fs.writeFileSync(path.join(extension,'manifest.json'),JSON.stringify(manifest));
+  await ui.locator('#reload-extension').click();
+  await page.waitForFunction(()=>document.querySelector('meta[name=workbook-extension]')?.dataset.version==='0.2.3');
+  ui=page.frameLocator('#assistant-bridge-frame');await ui.locator('#extension-version').filter({hasText:'界面与后台 v0.2.3'}).waitFor({state:'attached'});await ui.locator('#send:enabled').waitFor();
+  assert.equal(await ui.locator('#build-warning').isVisible(),false);assert.equal(await ui.locator('#question').inputValue(),'重载后草稿');assert.match(await ui.locator('#messages').textContent(),/保留的历史/);assert.equal(await ai.evaluate(()=>sends.length),0,'reload does not send');
+  await ui.locator('#question').fill('真正重载后的测试消息');await ui.locator('#question').press('Enter');await ui.locator('.message.assistant').last().filter({hasText:'隔离夹具完成 1'}).waitFor();await ui.locator('#provider:enabled').waitFor();assert.equal(await ai.evaluate(()=>sends.length),1,'old script replaced and sends once');
+  const storedURL=await ui.locator('#assistant').evaluate(()=>JSON.parse(localStorage.getItem('workbook-bridge-conversations-v1')).sessions.ds.url);assert.equal(storedURL,url);
+  // Reopening an exact session manually is picked up by the read-only scan, no binding.
+  await ai.close();await ui.locator('#connection-feedback[data-kind=error]').waitFor();const reopened=await context.newPage();await reopened.goto(url);await ui.locator('#scan').click();await ui.locator('#send:enabled').waitFor();assert.equal(await reopened.evaluate(()=>sends.length),0);
+  await ui.locator('#question').fill('自动找回后的消息');await ui.locator('#question').press('Enter');await ui.locator('.message.assistant').last().filter({hasText:'隔离夹具完成 1'}).waitFor();await ui.locator('#provider:enabled').waitFor();assert.equal(await reopened.evaluate(()=>sends.length),1);
+  // Closing again: the recovery button itself creates, selects and connects, no user bind.
+  await reopened.close();await ui.locator('#connection-feedback[data-kind=error]').waitFor();
+  const freshWorker=context.serviceWorkers().find(w=>w.url().includes(id))||await context.waitForEvent('serviceworker');
+  await freshWorker.evaluate(()=>{const create=chrome.tabs.create.bind(chrome.tabs);chrome.tabs.create=async opts=>{if(!opts.url.includes('chat.deepseek.com'))return create(opts);const t=await create({url:'about:blank',active:opts.active});for(let i=0;i<150;i++){const current=await chrome.tabs.get(t.id);if(current.url===opts.url)return current;await new Promise(r=>setTimeout(r,30));}throw Error('fixture navigation missing');};});
+  const next=context.waitForEvent('page');await ui.locator('#focus-selected').click();const created=await next;await created.goto(url);await ui.locator('#provider:enabled').waitFor();await ui.locator('#send:enabled').waitFor();assert.equal(await created.evaluate(()=>sends.length),0);assert.equal(created.url(),url);assert.match(await ui.locator('#messages').textContent(),/保留的历史/);
+  await ui.locator('#question').fill('按钮恢复后的消息');await ui.locator('#question').press('Enter');await ui.locator('.message.assistant').last().filter({hasText:'隔离夹具完成 1'}).waitFor();await ui.locator('#provider:enabled').waitFor();assert.equal(await created.evaluate(()=>sends.length),1);await ui.locator('#connection-feedback').waitFor({state:'hidden'});
+  await page.screenshot({path:path.join(qa,'recovered.png')});assert.deepEqual(errors,[]);
+  console.log('PASS: real isolated MV3 panel reload 0.2.0→0.2.3, same website picks up new runtime without refresh, draft/history restored, stale IDs repaired, old injected runtime replaced, manual reopen scan and recovery-button create/connect. No personal profile or real AI replies.');
+ }finally{await context.close();}
+})().catch(e=>{console.error(e);process.exitCode=1});

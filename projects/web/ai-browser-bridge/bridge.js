@@ -114,7 +114,7 @@
     if(message.type==='workbook:hello') { reply({ok:true,version,documentId,bindingToken,requestId:running?.id || pending || null}); return; }
     if(message.type==='workbook:scan') {
       running?.tick();
-      reply({ok:true,version,documentId,bindingToken,requestId:running?.id || pending || null,lastUpdate,counts:config?{input:nodes('input').length,answer:nodes('answer').length,stop:nodes('stop').length}:null});return;
+      reply({ok:true,version,url:location.href,documentId,bindingToken,requestId:running?.id || pending || null,lastUpdate,counts:config?{input:nodes('input').length,answer:nodes('answer').length,stop:nodes('stop').length}:null});return;
     }
     if(!['workbook:inspect','workbook:send','workbook:cancel'].includes(message.type)) return;
     const m={...message,type:message.type.slice('workbook:'.length)};
