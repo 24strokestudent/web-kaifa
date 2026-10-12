@@ -10,10 +10,56 @@ function timed(promise,ms,message) {
   let timer;
   return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]).finally(()=>clearTimeout(timer));
 }
+// Injection acknowledgement and content-script availability are independent signals.
+async function connectBridge(tab, live, stage) {
+  const version=chrome.runtime.getManifest().version;
+  const hello=async()=>{
+    try {
+      const r=await timed(chrome.tabs.sendMessage(tab.id,{type:'workbook:hello'},{frameId:0}),300,'握手等待');
+      return r?.ok && r.version===version;
+    } catch { return false; }
+  };
+  stage('检查站点访问权限');
+  const granted=await timed(chrome.permissions.contains({origins:[new URL(tab.url).origin+'/*']}),600,'权限检查未返回');
+  if(!granted) throw Error('缺少官网访问权限。请点击“授权并查找标签页”；没有注入或发送消息。');
+  stage('检查现有桥接脚本');
+  if(await hello()) { stage('现有脚本握手成功，无需重复注入'); return; }
+  if(!live()) throw Error('连接操作已取消');
+  stage('注入脚本，并行等待官网握手');
+  let injectionError=null, acknowledged=false, previous=null, woke=false;
+  // Always consume rejection, even if the handshake finishes first.
+  Promise.resolve().then(()=>chrome.scripting.executeScript({target:{tabId:tab.id,frameIds:[0]},injectImmediately:true,files:['providers.js','bridge.js']}))
+    .then(()=>{acknowledged=true;},error=>{injectionError=error;});
+  try {
+    for(let attempt=0;attempt<8;attempt++) {
+      const probeStarted=Date.now();
+      if(!live()) throw Error('连接操作已取消');
+      if(await hello()) { stage('官网脚本握手成功'+(acknowledged?'':'（注入回执尚未返回）')); return; }
+      if(injectionError) throw Error('浏览器拒绝注入：'+injectionError.message);
+      // A background tab can be frozen/discarded. Wake it once, without reloading it.
+      if(attempt===2 && !tab.active) {
+        stage('官网未回应，临时唤醒所选标签页（不刷新）');
+        previous=(await timed(chrome.tabs.query({active:true,windowId:tab.windowId}),400,'读取活动标签页超时'))[0];
+        await timed(chrome.tabs.update(tab.id,{active:true}),400,'唤醒官网标签页超时');
+        woke=true;
+      }
+      await new Promise(resolve=>setTimeout(resolve,Math.max(0,450-(Date.now()-probeStarted))));
+    }
+    throw Error(acknowledged?'注入已完成，但官网握手未回应；尚未检查输入框。':'浏览器未返回注入回执，官网握手也未回应；唤醒后仍不可用。');
+  } finally {
+    // Do not steal focus back if the user has switched elsewhere in the meantime.
+    if(woke && previous && previous.id!==tab.id) {
+      try {
+        const current=await timed(chrome.tabs.get(tab.id),300,'读取标签页超时');
+        if(current.active) await timed(chrome.tabs.update(previous.id,{active:true}),300,'恢复工作台超时');
+      } catch {}
+    }
+  }
+}
 async function release(s) {
   if (s.tabId && locks.get(s.tabId) === s) {
     locks.delete(s.tabId);
-    await timed(chrome.tabs.sendMessage(s.tabId, {type:'cancel', id:s.request}),2000,'停止同步超时').catch(() => {});
+    await timed(chrome.tabs.sendMessage(s.tabId, {type:'workbook:cancel', id:s.request}),2000,'停止同步超时').catch(() => {});
   }
   s.request = null;
 }
@@ -38,11 +84,18 @@ chrome.runtime.onConnect.addListener(port => {
         if (locks.has(tab.id) && locks.get(tab.id) !== s) throw Error('这个官网标签页正在被另一个工作台使用');
         await release(s);
         s.tabId=null; s.provider=null;
-        post(port,{type:'stage',operation:m.operation,message:'正在注入官网桥接脚本'});
-        await timed(chrome.scripting.executeScript({target:{tabId:tab.id},injectImmediately:true,files:['providers.js','bridge.js']}),5000,'注入官网脚本超时。请先打开所选官网标签页，等待页面可操作，再重试连接。');
-        if(s.bindOperation!==m.operation) return;
-        post(port,{type:'stage',operation:m.operation,message:'脚本已注入，正在检查输入框与发送按钮'});
-        const result = await timed(chrome.tabs.sendMessage(tab.id,{type:'inspect',provider:m.provider,overrides:m.overrides}),3000,'官网检查没有回应。请重新加载扩展，并刷新官网与工作台。');
+        const live=()=>sessions.has(port) && s.bindOperation===m.operation;
+        s.trace=[];
+        const started=Date.now();
+        const stage=message=>{
+          s.trace.push({ms:Date.now()-started,message});
+          if(live()) post(port,{type:'stage',operation:m.operation,message,trace:s.trace});
+        };
+        stage(`扩展 ${chrome.runtime.getManifest().version}；标签页状态 ${tab.status || 'unknown'}；休眠 ${!!tab.discarded}；冻结 ${!!tab.frozen}`);
+        await connectBridge(tab,live,stage);
+        if(!live()) return;
+        stage('握手成功，正在检查输入框与发送按钮');
+        const result = await timed(chrome.tabs.sendMessage(tab.id,{type:'workbook:inspect',provider:m.provider,overrides:m.overrides},{frameId:0}),1800,'脚本握手正常，但官网元素检查未回应。请保留诊断结果；没有发送消息。');
         if(!result?.ok) throw Error(result?.error || '检查失败');
         if(!sessions.has(port) || s.bindOperation!==m.operation) return;
         s.tabId=tab.id; s.provider=m.provider; s.bindingToken=result.bindingToken;
@@ -58,7 +111,7 @@ chrome.runtime.onConnect.addListener(port => {
         s.request=crypto.randomUUID(); locks.set(s.tabId,s);
         post(port,{type:'started',id:s.request,text:m.text});
         try {
-          const result=await chrome.tabs.sendMessage(s.tabId,{type:'send',id:s.request,text:m.text,bindingToken:s.bindingToken});
+          const result=await chrome.tabs.sendMessage(s.tabId,{type:'workbook:send',id:s.request,text:m.text,bindingToken:s.bindingToken});
           if(!result?.ok) throw Error(result?.error || '发送失败，请检查官网，勿直接重复发送');
         } catch(error) { await release(s); throw error; }
       } else if(m.type==='cancel') {
@@ -66,7 +119,7 @@ chrome.runtime.onConnect.addListener(port => {
       } else if(m.type==='focus') {
         if(s.tabId) { const t=await chrome.tabs.update(s.tabId,{active:true}); await chrome.windows.update(t.windowId,{focused:true}); }
       }
-    } catch(error) { post(port,{type:'error',operation:m.operation,message:error.message}); }
+    } catch(error) { post(port,{type:'error',operation:m.operation,message:error.message,trace:m.type==='bind'?s.trace:undefined}); }
   });
 });
 chrome.runtime.onMessage.addListener((m,sender) => {

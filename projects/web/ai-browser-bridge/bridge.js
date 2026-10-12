@@ -1,7 +1,8 @@
 /* Isolated content script. No cookies, token extraction, fetch, or page-world code. */
 (() => {
-  if(globalThis.__workbookBridge) return;
-  globalThis.__workbookBridge=true;
+  const version=chrome.runtime.getManifest().version;
+  const previous=globalThis.__workbookBridge;
+  if(typeof previous?.dispose==='function') previous.dispose();
   let config, running, bindingToken, pending;
   const visible = el => !!el.getClientRects().length && getComputedStyle(el).visibility!=='hidden';
   function nodes(key) {
@@ -35,7 +36,7 @@
     const editor=one('input');
     if(!enabled(editor)) throw Error('输入框不可用，请在官网检查登录');
     if(content(editor)) throw Error('官网输入框已有草稿，未覆盖。请先在官网保存或清空。');
-    one('send');
+    if(nodes('send').length>1) throw Error('发送按钮不唯一，未填写或发送');
     pending=m.id;
     const before=nodes('answer');
     // Existing answer text is only held in this isolated script to avoid importing old history.
@@ -85,8 +86,10 @@
     button.click();
     emit('','已点击官网发送按钮，等待可识别的新回复；不代表官网已接收。');
   }
-  chrome.runtime.onMessage.addListener((m,_sender,reply) => {
-    if(!['inspect','send','cancel'].includes(m.type)) return;
+  const listener=(message,_sender,reply) => {
+    if(message.type==='workbook:hello') { reply({ok:true,version}); return; }
+    if(!['workbook:inspect','workbook:send','workbook:cancel'].includes(message.type)) return;
+    const m={...message,type:message.type.slice('workbook:'.length)};
     (async()=>{
       if(m.type==='cancel') { if(!m.id || m.id===running?.id || m.id===pending) cancel(); return {ok:true}; }
       if(m.type==='send') { await send(m); return {ok:true}; }
@@ -100,8 +103,10 @@
       }
       const inputs=nodes('input').length, sends=nodes('send').length;
       bindingToken=crypto.randomUUID();
-      return {ok:true,bindingToken,ready:inputs===1 && sends===1,counts:{input:inputs,send:sends,answer:nodes('answer').length,stop:nodes('stop').length}};
+      return {ok:true,bindingToken,ready:inputs===1 && sends<=1,counts:{input:inputs,send:sends,answer:nodes('answer').length,stop:nodes('stop').length}};
     })().then(reply,error=>{if(m.type==='send')pending=null;reply({ok:false,error:error.message});});
     return true;
-  });
+  };
+  chrome.runtime.onMessage.addListener(listener);
+  globalThis.__workbookBridge={version,dispose(){cancel();chrome.runtime.onMessage.removeListener(listener);}};
 })();

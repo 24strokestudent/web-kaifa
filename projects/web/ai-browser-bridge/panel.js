@@ -77,6 +77,7 @@
   });
   port.onDisconnect.addListener(()=>{checked();clearInterval(heartbeat);ready=false;busy=false;state();status('扩展连接已断开，不会重发消息。请导出记录后刷新，再核对官网。','error');});
   port.onMessage.addListener(m=>{
+    if(m.trace && m.operation===bindOperation) $('#diagnostics').textContent=JSON.stringify(m.trace,null,2);
     if(m.type==='stage' && m.operation===bindOperation && checking){
       status(m.message,'pending');
     }else if(m.type==='tabs' && m.provider===$('#provider').value){
@@ -90,8 +91,8 @@
       binding={provider:m.provider,tabId:m.tabId};ready=m.ready;state();
       $('#connection-summary').textContent=BRIDGE_PROVIDERS[m.provider].name+(m.ready?' · 已绑定标签页 / 更改':' · 需要校准');
       if(m.ready) $('.connection').open=false;
-      $('#diagnostics').textContent=JSON.stringify(m.counts,null,2);
-      status(m.ready?'输入和发送元素已找到；回复读取仍待真实发送验证。':`元素未匹配或不唯一（输入框 ${m.counts.input}，发送按钮 ${m.counts.send}）。请检查登录或展开适配诊断。`,m.ready?'ready':'error');
+      $('#diagnostics').textContent+='\n元素匹配：'+JSON.stringify(m.counts,null,2);
+      status(m.ready?'输入框已找到；发送时会再次检查按钮，回复同步仍待真实验证。':`元素未匹配或不唯一（输入框 ${m.counts.input}，发送按钮 ${m.counts.send}）。请检查登录或展开适配诊断。`,m.ready?'ready':'error');
     }else if(m.type==='started'){
       request=m.id;append('user',m.text);answer=append('assistant','');$('#question').value='';
     }else if(m.type==='update' && m.id===request){

@@ -43,7 +43,7 @@ document.querySelector('#send').onclick=()=>{
     const panel=await context.newPage();const errors=[];panel.on('pageerror',e=>errors.push(e.message));
     await panel.goto(`chrome-extension://${id}/panel.html`);
     await panel.locator('.connection details summary').click();
-    for(const [key,p] of Object.entries(sandbox.BRIDGE_PROVIDERS)){
+    for(const [key,p] of Object.entries(process.env.BRIDGE_MODERN_ONLY?{}:sandbox.BRIDGE_PROVIDERS)){
       const official=await context.newPage();await official.goto(p.url);
       if(key==='ds') await official.evaluate(()=>{
         document.querySelector('#ask').placeholder='给 DeepSeek 发送消息 ';
@@ -60,7 +60,7 @@ document.querySelector('#send').onclick=()=>{
       await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
       await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));
       for(const [field,selector] of Object.entries({input:'#ask',send:'#send',answer:'.assistant',stop:'#stop'}))await panel.fill('#selector-'+field,key==='ds'?'':selector);
-      await panel.click('#bind');await panel.locator('#send:enabled').waitFor();
+      await panel.click('#bind');await panel.locator('#send:enabled').waitFor({timeout:8000});
       await panel.fill('#question',`${p.name} 桥接验收（夹具）`);await panel.click('#send');
       await panel.waitForFunction(()=>document.querySelector('.message.assistant:last-child pre')?.textContent==='夹具第一段',null,{timeout:8000}).catch(async error=>{
         console.log('DEBUG',await panel.locator('#status').textContent(),await official.evaluate(()=>({sends:window.sends,body:document.body.innerText})));throw error;
@@ -90,14 +90,16 @@ document.querySelector('#send').onclick=()=>{
     // A contenteditable editor, cancellation, and navigation use real extension messages too.
     const official=await context.newPage();await official.goto('https://chatgpt.com/');
     await official.evaluate(()=>{
-      document.querySelector('#ask').outerHTML='<div id="prompt-textarea" contenteditable="true" style="min-height:40px"> </div>';
-      document.querySelector('#send').dataset.testid='send-button';
-      document.querySelector('.assistant').dataset.messageAuthorRole='assistant';
-      document.querySelector('#stop').dataset.testid='stop-button';
+      document.querySelector('#ask').outerHTML='<div data-composer-markdown contenteditable="true" role="textbox" aria-label="询问 ChatGPT" style="min-height:40px"> </div>';
+      document.querySelector('#send').setAttribute('aria-label','发送');
+      document.querySelector('#send').hidden=true;
+      document.querySelector('[data-composer-markdown]').addEventListener('input',()=>document.querySelector('#send').hidden=false);
+      document.querySelector('.assistant').dataset.markdownTextStyle='assistant-message';
+      document.querySelector('#stop').setAttribute('aria-label','停止');
       document.querySelector('#send').onclick=()=>{
-        window.sends++;window.lastSent=document.querySelector('#prompt-textarea').innerText;
-        document.querySelector('#prompt-textarea').textContent='';
-        const a=document.createElement('div');a.dataset.messageAuthorRole='assistant';document.body.append(a);
+        window.sends++;window.lastSent=document.querySelector('[data-composer-markdown]').innerText;
+        document.querySelector('[data-composer-markdown]').textContent='';
+        const a=document.createElement('div');a.dataset.markdownTextStyle='assistant-message';document.body.append(a);
         document.querySelector('#stop').hidden=false;
         setTimeout(()=>a.textContent='真实浏览器里的富文本夹具',500);
       };
@@ -106,19 +108,19 @@ document.querySelector('#send').onclick=()=>{
     await panel.selectOption('#provider','gpt');await panel.click('#refresh');
     await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
     await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));
-    await panel.click('#bind');await panel.locator('#send:enabled').waitFor();
+    await panel.click('#bind');await panel.locator('#send:enabled').waitFor({timeout:8000});
     await panel.fill('#question','富文本编辑验证');await panel.click('#send');
     await panel.waitForFunction(()=>document.querySelector('.message.assistant:last-child pre')?.textContent.includes('富文本夹具'));
     assert.equal(await official.evaluate(()=>window.lastSent),'富文本编辑验证');
     await panel.click('#cancel');await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('已停止同步'));
     const lastText=await panel.locator('.message.assistant').last().textContent();
-    await official.evaluate(()=>document.querySelector('[data-message-author-role="assistant"]:last-child').textContent='停止后不应同步');
+    await official.evaluate(()=>document.querySelector('[data-markdown-text-style="assistant-message"]:last-child').textContent='停止后不应同步');
     await panel.waitForTimeout(1000);assert.equal(await panel.locator('.message.assistant').last().textContent(),lastText);
     await official.reload();await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('重新加载'));
     assert(await panel.locator('#send').isDisabled());await official.close();
     await panel.locator('.connection').evaluate(el=>el.open=false);
     await panel.screenshot({path:path.join(qa,'fixture-workspace.png'),fullPage:true});
     assert.deepEqual(errors,[]);
-    console.log('PASS: 7 providers via explicit calibration; rich text input, cancellation, navigation disconnect; split layout at 4 widths. NOT a live provider acceptance.');
+    console.log('PASS: '+(process.env.BRIDGE_MODERN_ONLY?'modern GPT fixture':'7 provider fixtures')+'; rich text input, deferred send button, cancellation, navigation disconnect; split layout at 4 widths. NOT a live provider acceptance.');
   }finally{await context.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});
