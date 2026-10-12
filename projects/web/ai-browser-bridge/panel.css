@@ -15,3 +15,4 @@ body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}.toolbar{f
 .learning-tools{margin:0;padding:10px 20px;border-bottom:1px solid var(--line);flex-shrink:1;max-height:245px;overflow:auto;min-height:36px}.learning-tools p{margin:7px 0}.learning-tools label{font-size:11px;display:flex;align-items:center;gap:7px}.learning-tools input{min-height:0;padding:0;accent-color:var(--accent)}.learning-suggestions{display:grid}.learning-suggestions button{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;font-size:12px;text-align:left;min-height:34px;padding:7px 0}.learning-tools pre{font:11px/1.7 system-ui,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;max-height:150px;overflow:auto}.learning-tools details{margin-top:8px}
 
 .learning-tools{flex-shrink:0;max-height:230px}
+.learning-tools label input{width:14px;height:14px;flex:0 0 14px}
