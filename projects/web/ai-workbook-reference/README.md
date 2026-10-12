@@ -100,3 +100,8 @@
 - [Claude API 认证](https://platform.claude.com/docs/en/manage-claude/authentication)：API 使用明确的服务凭证。
 - [Claude 流式消息](https://platform.claude.com/docs/en/build-with-claude/streaming)：模型事件需要增量处理。
 - [OpenAI 流式响应](https://developers.openai.com/api/docs/guides/streaming-responses)：正式 streaming 需要从 API 接收事件，前端打字动画不等同于真实流式调用。
+
+
+## 与官网桥接扩展一起使用
+
+在桥接扩展工作台的“教材”下拉选择“设计参考”，即可使用本页课程结构、拆任务、提示、排错与验收问法；内容送到扩展自己的输入框，再由用户发送。代码需在扩展侧勾选，换课会取消代码带入。本参考单文件独立打开时仍只整理可复制文字，不伪造登录或模型回复。正式根目录课程页支持同样的上下文通道。
