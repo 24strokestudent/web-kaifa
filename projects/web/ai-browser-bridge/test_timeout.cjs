@@ -6,7 +6,7 @@ async function check(stage){
   const chrome={
     action:{onClicked:event()},runtime:{getURL:p=>'chrome-extension://test/'+p,onConnect:{addListener:f=>connect=f},onMessage:event()},
     tabs:{get:async()=>({id:7,url:'https://chat.deepseek.com/'}),onRemoved:event(),onUpdated:event(),sendMessage:()=>{sendCalls++;return new Promise(()=>{});}},
-    scripting:{executeScript:()=>stage==='inject'?new Promise(()=>{}):Promise.resolve()}
+    scripting:{executeScript:options=>{assert.equal(options.injectImmediately,true);return stage==='inject'?new Promise(()=>{}):Promise.resolve();}}
   };
   const scope={chrome,URL,console,clearTimeout,setTimeout:(fn)=>setTimeout(fn,5),importScripts(){}};
   vm.createContext(scope);vm.runInContext(fs.readFileSync(path.join(__dirname,'providers.js'),'utf8'),scope);

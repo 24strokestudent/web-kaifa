@@ -6,6 +6,12 @@
   <section class="course"><iframe id="course" title="开发练习册课程" src="https://zhouwu97.github.io/web-kaifa/?bridge=1#/web"></iframe></section>
   <aside id="assistant" aria-label="官网 AI 助教">
     <header class="heading"><span class="eyebrow">A LITTLE HELP, AT THE RIGHT TIME</span><h1>边做，边问。</h1><p>在官网登录，在这里对话。使用官网当前账号与模型，受原有套餐限制。</p></header>
+    <section id="connection-feedback" class="feedback" data-kind="info" role="status" aria-live="polite" aria-atomic="true">
+      <div class="feedback-heading"><strong id="status-title">尚未连接</strong><span id="countdown" hidden></span></div>
+      <p id="status">选择官网标签页，再点击“绑定并检查”。</p>
+      <progress id="connection-progress" max="10" value="0" aria-label="连接检查已用时间" hidden></progress>
+      <div id="recovery" class="row" hidden><button id="retry" type="button">重新检查连接</button><button id="focus-selected" type="button">打开所选官网</button></div>
+    </section>
     <details class="connection" open><summary id="connection-summary">选择与连接官网</summary>
       <label for="provider">使用哪个 AI</label><select id="provider"></select>
       <div class="row"><button id="open">打开官网登录</button><button id="refresh">授权并查找标签页</button></div>
@@ -15,7 +21,7 @@
     </details>
     <div id="messages" class="messages" role="log" aria-label="本工作台本次会话"><p class="empty">先在官网登录并打开一段新对话，再绑定标签页。这里只同步你从本窗口发送后新增的回复，不导入官网历史。</p></div>
     <form id="compose"><label for="question">你的问题</label><textarea id="question" maxlength="12000" placeholder="先问一个小问题，验证官网连接。" required></textarea><div class="row"><button id="send" class="primary" disabled>发送到官网 ↑</button><button id="cancel" type="button" disabled>停止同步</button><button id="export" type="button">导出记录</button></div></form>
-    <p id="status" role="status">未绑定 · 没有调用模型 API</p><p class="footnote">记录只保留在这个工作台标签页内，刷新会丢失。请及时导出。停止同步不会停止官网生成。</p>
+    <p class="footnote">记录只保留在这个工作台标签页内，刷新会丢失。请及时导出。停止同步不会停止官网生成。</p>
   </aside>
 </div>
 <script src="providers.js"></script><script src="panel.js"></script>

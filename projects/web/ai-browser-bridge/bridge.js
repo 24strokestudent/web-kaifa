@@ -22,9 +22,9 @@
     pending=null;
     if(running) { clearInterval(running.timer); running.observer.disconnect(); running=null; }
   }
-  function emit(text,status,terminal=false) {
+  function emit(text,status,terminal=false,error=false) {
     if(!running) return;
-    chrome.runtime.sendMessage({type:'update',id:running.id,text,status,terminal}).catch(cancel);
+    chrome.runtime.sendMessage({type:'update',id:running.id,text,status,terminal,error}).catch(cancel);
     if(terminal) cancel();
   }
   async function send(m) {
@@ -76,8 +76,8 @@
         if(running.text && !stop && Date.now()-running.changed>8000 && !running.stableNotified) {
           running.stableNotified=true; emit(running.text,'文字暂时稳定，未确认生成完成；可继续等待或停止同步。');
         }
-        if(Date.now()-running.start>180000) emit(running.text,'同步超时，请到官网查看登录、额度或生成状态；没有自动重发。',true);
-      } catch(error) { emit(running?.text||'',`页面结构变化：${error.message}`,true); }
+        if(Date.now()-running.start>180000) emit(running.text,'同步超时，请到官网查看登录、额度或生成状态；没有自动重发。',true,true);
+      } catch(error) { emit(running?.text||'',`页面结构变化：${error.message}`,true,true); }
     };
     running.observer=new MutationObserver(tick);
     running.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-label']});

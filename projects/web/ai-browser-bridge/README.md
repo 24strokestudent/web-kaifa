@@ -4,6 +4,8 @@
 
 0.1.1 修复：根据 2026-10-12 的 DeepSeek 实际页面修正无标签发送图标、加载/停止图标与助手正文选择器；支持官网的禁用按钮样式。绑定检查增加超时和错误提示。官网两轮人工式浏览器发送成功，扩展到官网的端到端验收仍未完成。
 
+0.1.2 修复：注入脚本采用 `injectImmediately`，不再等待页面完全加载；这解决的是一种可能的注入等待原因，尚未在用户扩展页验证原超时是否消失。连接卡片移到顶部，显示动态剩余秒数、进度条和当前阶段。失败展示红色错误卡片，可重新检查或打开选中的官网，不自动重发消息。同步超时也采用错误样式。重试忽略旧操作的迟到结果。
+
 ## 安装与启动
 
 1. 在自己平时登录 AI 官网的 **同一个 Chrome / Edge 浏览器配置文件** 中打开 `chrome://extensions` 或 `edge://extensions`。
@@ -59,6 +61,7 @@
 ```powershell
 node projects/web/ai-browser-bridge/test_bridge.cjs
 node projects/web/ai-browser-bridge/test_timeout.cjs
+node projects/web/ai-browser-bridge/test_feedback.cjs
 node scripts/check_site.cjs
 # 启动仓库静态服务器后运行
 node scripts/test_site.cjs

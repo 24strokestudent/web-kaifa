@@ -32,15 +32,19 @@ chrome.runtime.onConnect.addListener(port => {
         post(port,{type:'tabs',provider:m.provider,tabs:tabs.map(t => ({id:t.id,title:t.title,url:t.url}))});
       } else if (m.type === 'bind') {
         if(s.request) throw Error('请先停止同步再切换标签页');
+        s.bindOperation=m.operation;
         const tab = await chrome.tabs.get(m.tabId);
         if (originProvider(tab.url) !== m.provider) throw Error('官网标签页与所选服务不符');
         if (locks.has(tab.id) && locks.get(tab.id) !== s) throw Error('这个官网标签页正在被另一个工作台使用');
         await release(s);
         s.tabId=null; s.provider=null;
-        await timed(chrome.scripting.executeScript({target:{tabId:tab.id},files:['providers.js','bridge.js']}),5000,'注入官网脚本超时。请刷新官网后重试，并检查扩展站点权限。');
+        post(port,{type:'stage',operation:m.operation,message:'正在注入官网桥接脚本'});
+        await timed(chrome.scripting.executeScript({target:{tabId:tab.id},injectImmediately:true,files:['providers.js','bridge.js']}),5000,'注入官网脚本超时。请先打开所选官网标签页，等待页面可操作，再重试连接。');
+        if(s.bindOperation!==m.operation) return;
+        post(port,{type:'stage',operation:m.operation,message:'脚本已注入，正在检查输入框与发送按钮'});
         const result = await timed(chrome.tabs.sendMessage(tab.id,{type:'inspect',provider:m.provider,overrides:m.overrides}),3000,'官网检查没有回应。请重新加载扩展，并刷新官网与工作台。');
         if(!result?.ok) throw Error(result?.error || '检查失败');
-        if(!sessions.has(port)) return;
+        if(!sessions.has(port) || s.bindOperation!==m.operation) return;
         s.tabId=tab.id; s.provider=m.provider; s.bindingToken=result.bindingToken;
         post(port,{type:'bound',operation:m.operation,tabId:tab.id,provider:m.provider,...result});
       } else if (m.type === 'send') {
@@ -68,7 +72,7 @@ chrome.runtime.onConnect.addListener(port => {
 chrome.runtime.onMessage.addListener((m,sender) => {
   const s=locks.get(sender.tab?.id);
   if(!s || sender.frameId!==0 || originProvider(sender.url)!==s.provider || m.id!==s.request || m.type!=='update') return;
-  post(s.port,{type:'update',id:m.id,text:typeof m.text==='string'?m.text.slice(0,200000):'',status:m.status,terminal:!!m.terminal});
+  post(s.port,{type:'update',id:m.id,text:typeof m.text==='string'?m.text.slice(0,200000):'',status:m.status,terminal:!!m.terminal,error:!!m.error});
   if(m.terminal) { locks.delete(s.tabId); s.request=null; }
 });
 function invalidate(tabId) {
