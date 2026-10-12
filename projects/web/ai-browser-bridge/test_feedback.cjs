@@ -7,7 +7,7 @@ const {pathToFileURL}=require('node:url');
  try{
   const page=await browser.newPage({viewport:{width:1200,height:960}});const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.route('https://**/*',r=>r.fulfill({contentType:'text/html; charset=utf-8',body:'<!doctype html><meta charset="utf-8"><h1>课程布局测试</h1>'}));
+  await page.route('https://**/*',r=>r.fulfill({contentType:'text/html; charset=utf-8',body:'<!doctype html><meta charset="utf-8"><h1>课程布局测试</h1><script>addEventListener("message",e=>{if(e.data.type==="workbook:course-request")parent.postMessage({type:"workbook:course-context",nonce:e.data.nonce,lesson:{id:"fixture",title:"课程布局测试",task:"完成测试任务",checks:["检查结果"]},code:"fixture code"},"*");});</script>'}));
   await page.addInitScript(()=>{
    window.__sent=[];window.__reply=null;
    const port={postMessage:m=>{window.__sent.push(m);if(m.type==='list')window.__reply({type:'tabs',provider:m.provider,tabs:[{id:7,title:'本地故障测试夹具'}]});},onMessage:{addListener:f=>window.__reply=f},onDisconnect:{addListener(){}}};
@@ -46,6 +46,16 @@ const {pathToFileURL}=require('node:url');
   assert.equal(await page.locator('#connection-feedback').getAttribute('role'),'alert');
   assert.equal(await page.locator('#status-title').textContent(),'回复同步中断');
   assert.equal(await page.evaluate(()=>window.__sent.filter(m=>m.type==='send').length),1,'no automatic resend');
+  await page.click('#retry');
+  await page.evaluate(()=>{const op=window.__sent.filter(m=>m.type==='bind').at(-1).operation;window.__reply({type:'bound',operation:op,provider:'ds',tabId:7,ready:true,counts:{input:1,send:1}});});
+  assert.equal(await page.locator('#connection-feedback').isVisible(),false,'successful connection banner collapses');
+  await page.check('#include-code');assert(await page.locator('#send').isEnabled(),'learning controls must not invalidate connection');
+  await page.locator('#learning-tools').evaluate(e=>e.open=true);await page.fill('#instruction','先解释，再给一个检查动作。');await page.fill('#question','我的问题正文');
+  await page.click('#preview-prompt');assert.match(await page.locator('#prompt-preview').textContent(),/我的问题正文/);assert.match(await page.locator('#prompt-preview').textContent(),/先解释/);await page.click('#close-prompt');
+  await page.click('#send');await page.evaluate(()=>{window.__reply({type:'started',id:'active',text:window.__sent.filter(m=>m.type==='send').at(-1).text});window.__reply({type:'reconnected',provider:'ds',ready:true,busy:true,interrupted:false});});
+  assert.equal(await page.locator('#status-title').textContent(),'正在回复','reconnected generation is not a pending bind');
+  assert.equal(await page.locator('#connection-feedback').isVisible(),false);
+  assert(await page.locator('#preview-prompt').isVisible());assert(await page.locator('.context-options').isVisible());assert.match(await page.locator('.message.assistant').last().textContent(),/等待官网回复/);
   const editorPage=await browser.newPage();
   await editorPage.setContent('<rich-textarea><div class="ql-editor" contenteditable="true">input</div><div class="ql-clipboard" contenteditable="true">clipboard helper</div></rich-textarea>');
   await editorPage.addScriptTag({path:path.join(__dirname,'providers.js')});

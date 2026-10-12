@@ -196,6 +196,8 @@ html,body{overflow-x:clip}
 #assistant-bridge-frame{display:none;width:100%;height:100%;border:0;background:var(--color-surface)}
 body.assistant-connected #assistant-panel> :not(#assistant-bridge-frame){display:none}
 body.assistant-connected #assistant-bridge-frame{display:block;min-height:0;flex:1}
+body.assistant-connected #assistant-update:not([hidden]){display:block;flex-shrink:0}
+.assistant-update{padding:var(--space-sm) var(--space-lg);border-bottom:1px solid var(--color-rule);background:var(--color-warm-tint);font-size:11px;line-height:1.6}
 body.assistant-connecting .assistant-mode-note{border:1px solid var(--color-rule)}
 #assistant-install{margin-top:var(--space-sm)}
 .connection-state{margin-block:var(--space-lg);padding:var(--space-md);background:var(--color-paper-2);border:1px solid var(--color-rule);border-radius:var(--radius-sm)}

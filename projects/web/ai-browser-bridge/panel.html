@@ -5,28 +5,28 @@
 <div id="workspace" class="workspace">
   <section class="course"><iframe id="course" title="开发练习册课程" data-src="https://zhouwu97.github.io/web-kaifa/?bridge=1#/web"></iframe></section>
   <aside id="assistant" aria-label="官网 AI 助教">
-    <header class="heading"><div class="assistant-heading-row"><h1>AI 助教</h1><button id="close-embedded" type="button" aria-label="收起 AI 助教" hidden>×</button></div><p>使用你的官网账号与当前模型。对应标签页可留在后台，切换 AI 保留原对话。</p></header>
+    <header class="heading"><div class="assistant-heading-row"><h1>AI 助教</h1><div class="provider-switch"><label for="provider">选择 AI</label><select id="provider"></select></div><button id="close-embedded" type="button" aria-label="收起 AI 助教" hidden>×</button></div><div class="assistant-status-row"><span id="compact-status" role="status">输入问题即可开始</span><button id="scan" type="button">检查连接</button></div></header>
     <section id="connection-feedback" class="feedback" data-kind="info" role="status" aria-live="polite" aria-atomic="true">
       <div class="feedback-heading"><strong id="status-title">尚未连接</strong><span id="countdown" hidden></span></div>
       <p id="status">输入问题即可开始。首次发送会自动准备新对话。</p>
       <progress id="connection-progress" max="10" value="0" aria-label="连接检查已用时间" hidden></progress>
       <div id="recovery" class="row" hidden><button id="retry" type="button">重新检查连接</button><button id="focus-selected" type="button">打开所选官网</button></div>
     </section>
-    <div class="provider-switch"><label for="provider">使用哪个 AI</label><select id="provider"></select></div>
     <details class="connection"><summary id="connection-summary">选择与连接官网</summary>
-
+      <p>对应 AI 官网标签页需要保持打开，可以放在后台。切换 AI 保留对话。</p><p id="extension-version"></p><p id="scan-result">连接检查不会发送或重发问题。</p>
       <div class="row"><button id="open">打开对话 / 登录</button><button id="refresh">授权并查找标签页</button></div>
       <label for="tabs">明确选择要操作的官网对话</label><select id="tabs"><option value="">先查找已打开的官网</option></select>
       <div class="row"><button id="bind">绑定并检查</button><button id="focus">查看官网</button></div>
       <details><summary>适配诊断 / 校准</summary><p>各平台仍在适配中。若匹配失败，可填写官网元素的 CSS 选择器后重新绑定。回复选择器必须只匹配助手回复，不能包含用户消息。</p><label>输入框<input id="selector-input" placeholder="默认适配器"></label><label>发送按钮<input id="selector-send" placeholder="默认适配器"></label><label>每条助手回复<input id="selector-answer" placeholder="默认适配器"></label><label>生成时的停止按钮<input id="selector-stop" placeholder="可选；没有时不推断完成"></label><pre id="diagnostics">未检查</pre></details>
     </details>
-    <details id="learning-tools" class="learning-tools" open><summary>提问与开发方法</summary>
-      <p id="lesson-label">尚未选择学习内容</p><div class="learning-suggestions"><button type="button" data-learning="plan">帮我把本课任务拆小 ↗</button><button type="button" data-learning="hint">先给我一个线索 ↗</button><button type="button" data-learning="debug">教我怎样排查报错 ↗</button></div>
-      <label><input id="include-task" type="checkbox" checked> 当前学习内容与验收要点</label><label><input id="include-code" type="checkbox"> 相关代码（主动带入）</label><details><summary>查看将带入的内容</summary><pre id="context-preview">仅发送你填写的问题。</pre></details>
-    </details>
     <div id="messages" class="messages" role="log" aria-label="本工作台本次会话"><p class="empty">直接输入问题，首次发送时自动新建对话。官网页面可以留在后台。</p></div>
+    <section class="prompt-context" aria-label="本次提问内容"><div class="context-heading"><span id="lesson-label">尚未选择学习内容</span><button id="preview-prompt" type="button">预览提示词</button></div><div class="context-options"><label><input id="include-task" type="checkbox" checked> 本课任务</label><label><input id="include-code" type="checkbox"> 我的代码</label><label><input id="include-instruction" type="checkbox" checked> 学习指导词</label></div><div class="learning-suggestions"><button type="button" data-learning="plan">拆小任务 ↗</button><button type="button" data-learning="hint">先给线索 ↗</button><button type="button" data-learning="debug">排查报错 ↗</button></div><pre id="context-preview" hidden>仅发送你填写的问题。</pre></section>
+    <details id="learning-tools" class="learning-tools"><summary>修改学习指导词</summary>
+      <label for="instruction">每次提问附带的学习指导词</label><textarea id="instruction" maxlength="2000" rows="3"></textarea><p>与问题一起发送给 AI，可修改或取消勾选。不会修改官网的系统设置。</p>
+    </details>
     <form id="compose"><label for="question">你的问题</label><textarea aria-describedby="keyboard-help" id="question" maxlength="12000" placeholder="你想做什么，或哪一步卡住了？" required></textarea><p id="keyboard-help">Enter 发送 · Ctrl / Shift + Enter 换行</p><div class="row"><button id="send" class="primary" disabled>发送 ↑</button><button id="cancel" type="button" disabled>停止同步</button><button id="export" type="button">导出对话</button></div></form>
-    <p class="footnote"><span id="save-state">对话与草稿保存在本机，切换 AI 或刷新后可恢复。</span> 停止同步不会停止 AI 生成。</p>
+    <p class="footnote"><span id="save-state">对话与草稿已保存在本机。</span></p>
+    <dialog id="prompt-dialog" aria-labelledby="prompt-title"><div class="assistant-heading-row"><h2 id="prompt-title">本次完整提示词</h2><button id="close-prompt" type="button" aria-label="关闭提示词预览">×</button></div><p id="prompt-summary"></p><pre id="prompt-preview"></pre><p>预览不会发送消息。官网收到的是这段文字。</p></dialog>
   </aside>
 </div>
 <script src="providers.js"></script><script src="panel.js"></script>

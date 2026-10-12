@@ -88,6 +88,7 @@ document.querySelector('#send').onclick=()=>{
       },key);
       await panel.locator('.connection').evaluate(el=>el.open=true);
       await panel.selectOption('#provider',key);await panel.locator('.connection').evaluate(el=>el.open=true);
+      await panel.uncheck('#include-instruction'); // This case verifies a plain payload; guidance is tested with course context.
       await panel.click('#refresh');
       await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
       await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));

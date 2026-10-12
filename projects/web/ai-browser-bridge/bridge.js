@@ -11,7 +11,7 @@
   const documentId=crypto.randomUUID();
   const previous=globalThis.__workbookBridge;
   try { if(typeof previous?.dispose==='function') previous.dispose(); } catch { /* Legacy disposer belongs to an invalidated runtime. */ }
-  let config, running, bindingToken, pending, disposed=false;
+  let config, running, bindingToken, pending, lastUpdate=null, disposed=false;
   const visible = el => !!el.getClientRects().length && getComputedStyle(el).visibility!=='hidden';
   function nodes(key) {
     for(const selector of config[key] || []) {
@@ -33,7 +33,8 @@
   }
   function emit(text,status,terminal=false,error=false) {
     if(!running) return;
-    try { Promise.resolve(runtime.sendMessage({type:'update',id:running.id,text,status,terminal,error})).catch(cancel); } catch { cancel(); }
+    lastUpdate={type:'update',id:running.id,text,status,terminal,error};
+    try { Promise.resolve(runtime.sendMessage(lastUpdate)).catch(cancel); } catch { cancel(); }
     if(terminal) cancel();
   }
   async function send(m) {
@@ -48,7 +49,7 @@
     pending=m.id;
     const before=nodes('answer');
     // Track old nodes; a newly appended answer can legitimately repeat earlier text.
-    const baseline=new Set(before);
+    const baseline=new Set(before.filter(el=>content(el)));
     editor.focus();
     if(editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
       const proto=editor instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;
@@ -81,7 +82,7 @@
         const latest=answers.at(-1);
         const text=latest?content(latest):'';
         // Fail closed: only a newly appended answer; never mistake old history for a response.
-        if(answers.length>before.length && text && !baseline.has(latest) && text!==m.text.trim() && text!==running.text) {
+        if(text && !baseline.has(latest) && text!==m.text.trim() && text!==running.text) {
           running.text=text; running.changed=Date.now(); running.stableNotified=false;
           emit(text,'正在回复…');
           if(!running) return;
@@ -92,19 +93,29 @@
         if(running.text && !stop && Date.now()-running.changed>8000 && !running.stableNotified) {
           running.stableNotified=true; emit(running.text,'文字暂时稳定，未确认生成完成；可继续等待或停止同步。');
         }
+        if(!running.text && Date.now()-running.start>15000 && !running.emptyNotified){
+          running.emptyNotified=true;
+          emit('',stop?'官网仍在生成，尚未读到回复正文。':'尚未找到新增回复，请打开官网核对；连接检查不会重发。');
+        }
         if(Date.now()-running.start>180000) emit(running.text,'同步超时，请到官网查看登录、额度或生成状态；没有自动重发。',true,true);
       } catch(error) { emit(running?.text||'',`页面结构变化：${error.message}`,true,true); }
     };
     running.observer=new MutationObserver(tick);
-    running.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-label','data-streaming']});
+    running.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-label','data-streaming','class','hidden','style']});
     running.timer=setInterval(tick,500);
+    running.tick=tick;
     button.click();
     emit('','正在等待回复…');
+    tick();
   }
   const listener=(message,_sender,respond) => {
     if(disposed) return;
     const reply=value=>{try{respond(value);}catch{cancel();}};
     if(message.type==='workbook:hello') { reply({ok:true,version,documentId,bindingToken,requestId:running?.id || pending || null}); return; }
+    if(message.type==='workbook:scan') {
+      running?.tick();
+      reply({ok:true,version,documentId,bindingToken,requestId:running?.id || pending || null,lastUpdate,counts:config?{input:nodes('input').length,answer:nodes('answer').length,stop:nodes('stop').length}:null});return;
+    }
     if(!['workbook:inspect','workbook:send','workbook:cancel'].includes(message.type)) return;
     const m={...message,type:message.type.slice('workbook:'.length)};
     (async()=>{
