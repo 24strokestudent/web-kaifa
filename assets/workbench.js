@@ -160,29 +160,71 @@
   function sendAssistant(message){
     if(embeddedAssistant?.ready)embeddedAssistant.frame.contentWindow.postMessage({...message,nonce:embeddedAssistant.nonce},embeddedAssistant.origin);
   }
-  function connectAssistant(url,version){
-    if(!api || courseParent || embeddedAssistant)return;
+  function setAssistantConnection(state){
+    const card=$('#connection-state');if(!card)return;
+    const busy=['probing','connecting'].includes(state.phase);
+    const version=state.version?' v'+state.version:'';
+    const messages={
+      idle:['连接你的扩展','已安装扩展可以直接连接，无需重新安装。'],
+      probing:[`正在查找扩展 · ${state.seconds} 秒`,'检查当前浏览器中的官网对话桥接扩展。'],
+      connecting:[`已检测到扩展${version} · ${state.seconds} 秒`,'正在打开聊天面板，问题草稿会保留。'],
+      connected:[`扩展${version} 已连接`,'可以在右侧直接对话。'],
+      unavailable:['未收到扩展回应','不能据此判断是否已安装。若扩展菜单里已经有“开发练习册”，请允许它在本网站运行，再点一次扩展图标。旧版本需更新至 0.2.1 或以上，原对话记录保留。'],
+      failed:[`已检测到扩展${version}，面板未接通`,'已收到扩展地址，但聊天面板没有回应。请点“重新连接”；若仍失败，检查扩展是否启用、是否允许在本网站运行。无需重新绑定 AI 对话，问题草稿仍在。'],
+      unsupported:['此页面不支持扩展连接','请在 Chrome 或 Edge 打开线上学习网站，或使用本机 HTTP 服务；直接打开 HTML 文件只能整理提问。']
+    };
+    const [title,detail]=messages[state.phase]||messages.idle;
+    card.dataset.phase=state.phase;
+    $('.assistant-mode-note').dataset.phase=state.phase;
+    $('#connection-state-title').textContent=title;
+    $('#connection-detail').textContent=detail;
+    $('#assistant-connection-summary').textContent=busy?title:state.phase==='failed'?title:'当前可整理并复制提问';
+    $('#connection-retry').disabled=busy || state.phase==='unsupported';
+    $('#connection-retry').textContent=busy?'正在连接…':state.phase==='failed'?'重新连接':state.phase==='connected'?'打开 AI 助教':'连接已安装扩展';
+    $('#connection-install-guide').hidden=Boolean(state.version);
+    if(state.phase==='connected'){
+      if($('#connection-dialog').open)$('#connection-dialog').close();
+      if($('#provider-dialog').open)$('#provider-dialog').close();
+    }
+  }
+  function connectAssistant(url,version,instance=''){
+    if(!api || courseParent)return false;
+    if(embeddedAssistant){
+      if(embeddedAssistant.url===url && embeddedAssistant.version===version && embeddedAssistant.instance===instance)return true;
+      embeddedAssistant.dispose();
+    }
     const nonce=crypto.randomUUID(),target=new URL(url);
     target.searchParams.set('embedded','1');target.searchParams.set('host',location.origin);target.searchParams.set('channel',nonce);
     const frame=document.createElement('iframe');frame.id='assistant-bridge-frame';frame.title='AI 助教 · 官网账号对话';frame.src=target.href;
-    $('#assistant-panel').append(frame);embeddedAssistant={frame,origin:'chrome-extension://'+target.hostname,nonce,ready:false,version};
+    $('#assistant-panel').append(frame);embeddedAssistant={frame,origin:'chrome-extension://'+target.hostname,nonce,ready:false,version,url,instance};
+    document.body.classList.remove('assistant-connected');
     document.body.classList.add('assistant-connecting');
+    const deadline=Date.now()+8000;
+    const report=phase=>window.dispatchEvent(new CustomEvent('workbook:assistant-connection',{detail:{phase,version:version||'',url,instance,seconds:phase==='connecting'?Math.max(0,Math.ceil((deadline-Date.now())/1000)):0}}));
+    report('connecting');
+    const ticker=setInterval(()=>report('connecting'),250);
+    const cleanup=()=>{clearTimeout(timeout);clearInterval(ticker);};
     const timeout=setTimeout(()=>{
-      if(embeddedAssistant?.ready)return;
+      cleanup();window.removeEventListener('message',onMessage);
       frame.remove();embeddedAssistant=null;document.body.classList.remove('assistant-connecting');
-      $('#assistant-status').textContent='扩展界面没有回应。问题仍保留，请检查扩展是否已更新。';
+      report('failed');
+      $('#assistant-status').textContent='扩展面板连接失败。问题已保留，可通过“连接扩展”重试。';
     },8000);
-    window.addEventListener('message',event=>{
+    const onMessage=event=>{
       const m=event.data;
       if(!embeddedAssistant || event.source!==frame.contentWindow || event.origin!==embeddedAssistant.origin || m?.nonce!==nonce)return;
       if(m.type==='workbook:course-request' || m.type==='workbook:assistant-ready'){
-        clearTimeout(timeout);embeddedAssistant.ready=true;
+        cleanup();embeddedAssistant.ready=true;
         document.body.classList.remove('assistant-connecting');document.body.classList.add('assistant-connected');
+        report('connected');
         publishCourse();
         if(draft.question)sendAssistant({type:'workbook:assistant-draft',text:draft.question});
       }
       if(m.type==='workbook:assistant-close')closeAssistant();
-    });
+    };
+    window.addEventListener('message',onMessage);
+    embeddedAssistant.dispose=()=>{cleanup();window.removeEventListener('message',onMessage);frame.remove();embeddedAssistant=null;};
+    return true;
   }
   function contextText() {
     const lesson = learningContext();
@@ -273,11 +315,11 @@
       <button id="assistant-backdrop" class="assistant-backdrop" tabindex="-1" aria-label="关闭 AI 助教" hidden></button>
       <aside class="assistant-panel" id="assistant-panel" aria-labelledby="assistant-title" hidden>
         <header class="assistant-heading"><div class="assistant-row"><h2 id="assistant-title"><span class="assistant-symbol" aria-hidden="true">✳</span>AI 助教</h2><button class="assistant-close" id="assistant-close" aria-label="收起 AI 助教">×</button></div><button class="button provider-button" id="assistant-provider" aria-haspopup="dialog"><span><b id="assistant-provider-name">Claude</b> · 本地提问</span><span>选择服务 ⌄</span></button></header>
-        <div class="assistant-body"><p class="assistant-mode-note">扩展未连接 · 当前可整理并复制提问 <button type="button" class="button quiet small" id="assistant-install">连接帮助</button></p><span class="workbook-eyebrow">A LITTLE HELP, AT THE RIGHT TIME</span><h3 class="assistant-greeting">从你卡住的地方开始。</h3><p class="assistant-description">说说你想做什么、试过什么。先整理一个清楚的问题，再带着提示回到自己的代码里。</p><div class="assistant-suggestions"><button data-assist-preset="plan">帮我把任务拆小</button><button data-assist-preset="hint">先给我一个线索</button><button data-assist-preset="debug">教我怎样排查报错</button></div><section class="assistant-context"><h3 id="assistant-context-label"></h3><label><input id="assistant-task" type="checkbox" checked>当前课程与验收标准</label><label><input id="assistant-code" type="checkbox">我编辑的代码</label><details><summary>查看本次提问的上下文</summary><pre id="assistant-context-preview"></pre></details></section><section class="assistant-result" id="assistant-result" hidden><div class="assistant-row"><h3>整理后的提问 · 非 AI 回答</h3><button class="button quiet small" id="assistant-copy">复制</button></div><pre id="assistant-output" tabindex="0"></pre></section></div>
+        <div class="assistant-body"><p class="assistant-mode-note"><span id="assistant-connection-summary">当前可整理并复制提问</span> <button type="button" class="button quiet small" id="assistant-install">连接扩展</button></p><span class="workbook-eyebrow">A LITTLE HELP, AT THE RIGHT TIME</span><h3 class="assistant-greeting">从你卡住的地方开始。</h3><p class="assistant-description">说说你想做什么、试过什么。先整理一个清楚的问题，再带着提示回到自己的代码里。</p><div class="assistant-suggestions"><button data-assist-preset="plan">帮我把任务拆小</button><button data-assist-preset="hint">先给我一个线索</button><button data-assist-preset="debug">教我怎样排查报错</button></div><section class="assistant-context"><h3 id="assistant-context-label"></h3><label><input id="assistant-task" type="checkbox" checked>当前课程与验收标准</label><label><input id="assistant-code" type="checkbox">我编辑的代码</label><details><summary>查看本次提问的上下文</summary><pre id="assistant-context-preview"></pre></details></section><section class="assistant-result" id="assistant-result" hidden><div class="assistant-row"><h3>整理后的提问 · 非 AI 回答</h3><button class="button quiet small" id="assistant-copy">复制</button></div><pre id="assistant-output" tabindex="0"></pre></section></div>
         <div class="assistant-compose-area"><form class="assistant-compose" id="assistant-form"><label for="assistant-question">你的问题</label><textarea id="assistant-question" maxlength="4000" aria-describedby="assistant-status" placeholder="例如：我该先写页面结构，还是先调整样式？"></textarea><div class="assistant-row"><small>先要线索，再自己动手</small><button class="button primary" type="submit">整理提问 ↑</button></div></form><p id="assistant-status" class="assistant-status" role="status"></p><p class="assistant-footnote">提问草稿仅保留在当前页面，请及时复制</p></div>
       </aside>
-      <dialog class="workbook-dialog" id="provider-dialog" aria-labelledby="provider-title"><div class="assistant-row"><h2 id="provider-title">选择你使用的 AI</h2><button class="assistant-close" data-close-dialog="provider-dialog" aria-label="关闭服务选择">×</button></div><p>选择你准备复制提问到的工具；本站目前没有在线模型连接。</p><div class="provider-options">${['Claude', 'ChatGPT', 'Gemini', 'DeepSeek', 'Kimi', '豆包', '智谱清言'].map(name => `<button class="button" data-provider="${name}" aria-pressed="${name === provider}"><strong>${name}</strong><small>本地提问</small></button>`).join('')}</div><p>选择服务不会登录第三方账号，也不会把课程或代码发出去。</p><button class="button" id="connection-info">了解站内登录与对话</button></dialog>
-      <dialog class="workbook-dialog" id="connection-dialog" aria-labelledby="connection-title"><div class="assistant-row"><h2 id="connection-title">关于站内对话</h2><button class="assistant-close" data-close-dialog="connection-dialog" aria-label="关闭连接说明">×</button></div><p>当前版本可以直接学习和整理提问，不需要登录。</p><p>安装新版官网对话桥接扩展后，本页右侧会自动显示聊天窗口。直接输入问题，扩展准备新对话；需要登录时在 AI 官网完成。对应官网标签页可留在后台。</p><p>扩展未连接时可以整理、复制提问。聊天使用官网当前账号和模型，不调用付费模型 API。七家适配状态见扩展说明。</p><a class="button" href="projects/web/ai-browser-bridge/README.md" target="_blank" rel="noopener">安装扩展与使用说明 ↗</a><button class="button primary" data-close-dialog="connection-dialog">知道了</button></dialog>`;
+      <dialog class="workbook-dialog" id="provider-dialog" aria-labelledby="provider-title"><div class="assistant-row"><h2 id="provider-title">选择你使用的 AI</h2><button class="assistant-close" data-close-dialog="provider-dialog" aria-label="关闭服务选择">×</button></div><p>未连接扩展时，这里选择要复制提问到的工具；连接扩展后可在右侧直接对话。</p><div class="provider-options">${['Claude', 'ChatGPT', 'Gemini', 'DeepSeek', 'Kimi', '豆包', '智谱清言'].map(name => `<button class="button" data-provider="${name}" aria-pressed="${name === provider}"><strong>${name}</strong><small>本地提问</small></button>`).join('')}</div><p>选择服务不会登录第三方账号，也不会把课程或代码发出去。</p><button class="button" id="connection-info">连接已安装扩展 / 使用说明</button></dialog>
+      <dialog class="workbook-dialog" id="connection-dialog" aria-labelledby="connection-title"><div class="assistant-row"><h2 id="connection-title">连接官网对话扩展</h2><button class="assistant-close" data-close-dialog="connection-dialog" aria-label="关闭连接说明">×</button></div><p>连接后就在右侧对话，使用你自己的官网账号；对应 AI 标签页需保持打开，可以放在后台。</p><section id="connection-state" class="connection-state" data-phase="idle" role="status" aria-live="polite"><strong id="connection-state-title">连接你的扩展</strong><p id="connection-detail">已安装扩展可以直接连接，无需重新安装。</p></section><div class="button-row"><button class="button primary" type="button" id="connection-retry">连接已安装扩展</button><button class="button" data-close-dialog="connection-dialog">稍后连接</button></div><details id="connection-install-guide"><summary>还没有安装？查看安装方法</summary><ol><li>下载仓库中的 ai-browser-bridge 文件夹。</li><li>打开浏览器的扩展管理，开启开发者模式，选择“加载已解压的扩展程序”。</li><li>选取包含 manifest.json 的文件夹，再点扩展图标回到本页。</li></ol><p>当前是开发原型，尚未上架扩展商店，浏览器不能由网页自动安装。</p></details><a class="button quiet small" href="projects/web/ai-browser-bridge/README.md" target="_blank" rel="noopener">扩展说明与排查步骤 ↗</a></dialog>`;
     $('#assistant-toggle').addEventListener('click', () => document.body.classList.contains('assistant-open') ? closeAssistant() : openAssistant());
     $('#assistant-close').addEventListener('click', closeAssistant);
     $('#assistant-backdrop').addEventListener('click', closeAssistant);
@@ -285,7 +327,8 @@
     $('#assistant-provider').addEventListener('click', () => $('#provider-dialog').showModal());
     $('#assistant-install').addEventListener('click',()=>$('#connection-dialog').showModal());
     $('#connection-info').addEventListener('click', () => { $('#provider-dialog').close(); $('#connection-dialog').showModal(); });
-    $('#connection-dialog').addEventListener('close', () => $('#assistant-provider').focus());
+    $('#connection-retry').addEventListener('click',()=>{openAssistant();window.WorkbookExtensionConnection?.retry();});
+    $('#connection-dialog').addEventListener('close', () => embeddedAssistant?.ready?embeddedAssistant.frame.focus():$('#assistant-provider').focus());
     document.querySelectorAll('[data-provider]').forEach(button => button.addEventListener('click', () => {
       provider = button.dataset.provider;
       $('#assistant-provider-name').textContent = provider;
@@ -333,5 +376,5 @@
       setOpen(document.body.classList.contains('assistant-open'));
     });
   }
-  window.Workbench = { connectAssistant, openAssistant, configure, mountLesson, routeChanged, methodPage, refreshProgress };
+  window.Workbench = { connectAssistant, setAssistantConnection, openAssistant, configure, mountLesson, routeChanged, methodPage, refreshProgress };
 })();

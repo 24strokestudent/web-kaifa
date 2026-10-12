@@ -4,13 +4,23 @@ const locks = new Map();
 const originProvider = url => {
   try { const u = new URL(url); return u.protocol === 'https:' && Object.entries(BRIDGE_PROVIDERS).find(([,p]) => p.hosts.includes(u.hostname))?.[0]; } catch { return null; }
 };
+async function announceWorkbook(tab){
+  if(!isWorkbookURL(tab?.url))return;
+  await chrome.scripting.executeScript({target:{tabId:tab.id,frameIds:[0]},files:['workbook-sites.js','site-bridge.js']});
+}
+// Static document-start scripts do not repair tabs already open when an extension updates.
+chrome.runtime.onInstalled?.addListener(async details=>{
+  if(!['install','update'].includes(details.reason))return;
+  const tabs=await chrome.tabs.query({});
+  await Promise.allSettled(tabs.filter(t=>isWorkbookURL(t.url)).map(announceWorkbook));
+});
 chrome.action.onClicked.addListener(async tab=>{
   const tabs=await chrome.tabs.query({});
   const workbook=isWorkbookURL(tab?.url)?tab:tabs.find(t=>isWorkbookURL(t.url));
   if(workbook){
     await chrome.tabs.update(workbook.id,{active:true});
     try{await chrome.tabs.sendMessage(workbook.id,{type:'workbook:open-assistant'},{frameId:0});}
-    catch{await chrome.scripting.executeScript({target:{tabId:workbook.id,frameIds:[0]},files:['workbook-sites.js','site-bridge.js']});await chrome.tabs.sendMessage(workbook.id,{type:'workbook:open-assistant'},{frameId:0});}
+    catch{await announceWorkbook(workbook);await chrome.tabs.sendMessage(workbook.id,{type:'workbook:open-assistant'},{frameId:0});}
   }else await chrome.tabs.create({url:'https://zhouwu97.github.io/web-kaifa/?assistant=1#/home'});
 });
 function post(port, value) { try { port.postMessage(value); } catch {} }

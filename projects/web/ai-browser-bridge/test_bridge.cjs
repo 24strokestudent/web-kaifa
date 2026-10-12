@@ -11,7 +11,7 @@ const extension=fs.mkdtempSync(path.join(qa,'extension-'));
 for(const f of ['manifest.json','providers.js','background.js','bridge.js','panel.html','panel.js','panel.css','theme.css','workbook-sites.js','site-bridge.js','panel-mode.js'])fs.copyFileSync(path.join(__dirname,f),path.join(extension,f));
 const manifest=JSON.parse(fs.readFileSync(path.join(extension,'manifest.json')));
 // Only the test copy pregrants hosts, to avoid automating the browser's permission prompt.
-manifest.host_permissions=manifest.optional_host_permissions;
+manifest.host_permissions=[...new Set([...(manifest.host_permissions||[]),...manifest.optional_host_permissions])];
 fs.writeFileSync(path.join(extension,'manifest.json'),JSON.stringify(manifest));
 const sandbox={};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'providers.js'),'utf8'),sandbox);
 const fixture=`<!doctype html><meta charset="utf-8"><title>DOM 测试夹具 · 非官网回复</title>
