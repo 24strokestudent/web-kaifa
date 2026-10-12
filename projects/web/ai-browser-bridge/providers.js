@@ -1,4 +1,6 @@
 /* Candidate DOM adapters. These are NOT claims of live authenticated verification. */
+globalThis.WORKBOOK_BRIDGE_BUILD='0.2.3';
+globalThis.WORKBOOK_BRIDGE_PROTOCOL=3;
 globalThis.BRIDGE_PROVIDERS = {
   gpt: {name:'ChatGPT', url:'https://chatgpt.com/', hosts:['chatgpt.com'],
     input:['#prompt-textarea','[data-composer-markdown][contenteditable="true"][role="textbox"]'], send:['button[data-testid="send-button"]','button[aria-label="Send prompt"]','button[aria-label="发送"]'], answer:['[data-message-author-role="assistant"]','[data-markdown-text-style="assistant-message"]'], stop:['button[data-testid="stop-button"]','button[aria-label="停止"]']},

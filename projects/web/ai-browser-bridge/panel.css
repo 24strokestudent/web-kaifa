@@ -87,4 +87,7 @@ textarea{background:var(--color-paper)}
 .message.user{background:var(--color-paper-2)}
 .feedback{background:var(--color-paper-2)}
 .feedback[data-kind=error]{border-color:var(--color-error);background:var(--color-error-tint);color:var(--color-error)}
+.build-warning{flex-shrink:0;margin:var(--space-sm) var(--space-lg);padding:var(--space-sm);border:1px solid var(--color-accent);border-radius:var(--radius-md);max-height:150px;overflow:auto}
+.build-warning p{margin:var(--space-xs) 0;font-size:11px}.build-warning button{font-size:11px;min-height:34px}
+.session-note{font-size:11px;color:var(--muted);border-block:1px solid var(--line);padding-block:var(--space-sm)}
 :focus-visible{outline-color:var(--color-focus)}

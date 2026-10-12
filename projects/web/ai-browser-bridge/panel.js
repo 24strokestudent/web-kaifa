@@ -7,35 +7,42 @@
   if(embed){$('#course').remove();$('#close-embedded').hidden=false;}else $('#course').src=$('#course').dataset.src;
   let courseContext=null,courseNonce=embed?.channel || null;
   const STORAGE='workbook-bridge-conversations-v1';
-  let saved={},activeProvider='gpt',saveBlocked=false,lastSavedRaw=null;
+  let saved={},activeProvider='gpt',saveBlocked=false,lastSavedRaw=null,officialURL='',newOfficialSession=false;
+  let buildTimer=null,backendBuild=null;
+  function validOfficialURL(value,provider=activeProvider){
+    try{const u=new URL(value);return typeof value==='string' && value.length<=2000 && u.protocol==='https:' && !u.username && !u.password && BRIDGE_PROVIDERS[provider]?.hosts.includes(u.hostname)?u.href:'';}catch{return '';}
+  }
+  function rememberURL(value){const url=validOfficialURL(value);if(url){officialURL=url;const option=$('#tabs').selectedOptions[0];if(option)option.dataset.url=url;}}
   try { const raw=localStorage.getItem(STORAGE);lastSavedRaw=raw; if(raw){const data=JSON.parse(raw);if(data.version!==1 || !data.sessions || typeof data.sessions!=='object')throw Error('bad storage');for(const [key,v] of Object.entries(data.sessions)){if(!BRIDGE_PROVIDERS[key] || !v || !Array.isArray(v.records) || v.records.some(r=>!r || !['user','assistant'].includes(r.role) || typeof r.text!=='string') || !Array.isArray(v.options))throw Error('bad conversation');}saved=data.sessions;activeProvider=BRIDGE_PROVIDERS[data.active]?data.active:'gpt';} }
   catch {saveBlocked=true;}
   function remember(){
-    saved[activeProvider]={records,draft:$('#question').value,tab:$('#tabs').value,options:[...$('#tabs').options].map(o=>({value:o.value,text:o.text})),contextLessonId:courseContext?.lesson?.id,includeTask:$('#include-task').checked,includeCode:$('#include-code').checked,includeInstruction:$('#include-instruction').checked,instruction:$('#instruction').value,selectors:Object.fromEntries(['input','send','answer','stop'].map(k=>[k,$('#selector-'+k).value]))};
-    if(saveBlocked){$('#save-state').textContent='本机历史异常，原记录已保留；当前对话请导出保存。';return;}
-    try {if(localStorage.getItem(STORAGE)!==lastSavedRaw){saveBlocked=true;$('#save-state').textContent='存档已被其他窗口修改，未覆盖；请导出本窗口对话。';return;}const raw=JSON.stringify({version:1,active:activeProvider,sessions:saved});localStorage.setItem(STORAGE,raw);lastSavedRaw=raw;$('#save-state').textContent='对话与草稿已保存在本机。';}
-    catch {$('#save-state').textContent='本机保存失败，当前对话仍在；请及时导出。';}
+    saved[activeProvider]={records,draft:$('#question').value,tab:$('#tabs').value,url:officialURL,newOfficialSession,options:[...$('#tabs').options].map(o=>({value:o.value,text:o.text,url:o.dataset.url||''})),contextLessonId:courseContext?.lesson?.id,includeTask:$('#include-task').checked,includeCode:$('#include-code').checked,includeInstruction:$('#include-instruction').checked,instruction:$('#instruction').value,selectors:Object.fromEntries(['input','send','answer','stop'].map(k=>[k,$('#selector-'+k).value]))};
+    if(saveBlocked){$('#save-state').textContent='本机历史异常，原记录已保留；当前对话请导出保存。';return false;}
+    try {if(localStorage.getItem(STORAGE)!==lastSavedRaw){saveBlocked=true;$('#save-state').textContent='存档已被其他窗口修改，未覆盖；请导出本窗口对话。';return false;}const raw=JSON.stringify({version:1,active:activeProvider,sessions:saved});localStorage.setItem(STORAGE,raw);lastSavedRaw=raw;$('#save-state').textContent='对话与草稿已保存在本机。';return true;}
+    catch {$('#save-state').textContent='本机保存失败，当前对话仍在；请及时导出。';return false;}
   }
   function restore(provider){
-    activeProvider=provider;ready=false;binding=null;request=null;answer=null;
-    const previous=saved[provider];records=previous?.records || [];
+    activeProvider=provider;ready=false;binding=null;request=null;answer=null;newOfficialSession=false;
+    const previous=saved[provider];records=previous?.records || [];officialURL=validOfficialURL(previous?.url,provider);newOfficialSession=previous?.newOfficialSession===true;
     $('#messages').replaceChildren();
     for(const record of records) renderRecord(record);
+    showSessionNote();
     if(!records.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='直接输入问题。首次发送会自动打开一段新对话；登录完成后在这里继续。';$('#messages').append(empty);}
     $('#messages').scrollTop=$('#messages').scrollHeight;
     $('#question').value=previous?.draft || '';
     $('#include-task').checked=previous?.includeTask!==false;$('#include-code').checked=previous?.includeCode===true && previous?.contextLessonId===courseContext?.lesson?.id;
     $('#include-instruction').checked=previous?.includeInstruction!==false;$('#instruction').value=typeof previous?.instruction==='string'?previous.instruction:defaultInstruction;refreshLearning();
-    $('#tabs').replaceChildren(...(previous?.options||[{value:'',text:'先连接这个 AI'}]).map(o=>new Option(o.text,o.value)));
+    $('#tabs').replaceChildren(...(previous?.options||[{value:'',text:'先连接这个 AI'}]).map(o=>{const option=new Option(o.text,o.value);option.dataset.url=validOfficialURL(o.url,provider);return option;}));
     $('#tabs').value=previous?.tab || '';
     for(const key of ['input','send','answer','stop']) $('#selector-'+key).value=previous?.selectors?.[key] || '';
     $('#connection-summary').textContent=BRIDGE_PROVIDERS[provider].name+' · 连接设置';
     $('.connection').open=false;state();
     status(previous?.tab?'正在恢复原会话…':'直接输入问题，首次发送时自动新建对话。');
-    if(previous?.tab) beginConnection('ensure',false);
+    if(previous?.tab || officialURL) beginConnection('ensure',false);
   }
   function renderRecord(record){
     const item=document.createElement('article');item.className='message '+record.role;
+    if(record.newConversation){const note=document.createElement('p');note.className='session-note';note.textContent='新的官网对话 · 前面的本机记录没有重新发送给 AI。';item.append(note);}
     const label=document.createElement('strong');label.textContent=record.role==='user'?'你':BRIDGE_PROVIDERS[record.provider]?.name || 'AI';
     const pre=document.createElement('pre');pre.textContent=record.text;item.append(label,pre);
     if(record.role==='user' && (record.question || record.text.startsWith('课程：') && record.text.includes('\n\n我的问题：'))){
@@ -46,6 +53,10 @@
       const pending=document.createElement('p');pending.className='reply-placeholder';pending.textContent=busy?'正在等待官网回复…':'未保存回复正文，请到官网核对。';item.append(pending);
     }
     $('#messages').append(item);return {pre,record};
+  }
+  function showSessionNote(){
+    $('.new-session-note')?.remove();
+    if(newOfficialSession && records.length){const note=document.createElement('p');note.className='session-note new-session-note';note.textContent='已打开新的官网对话。前面的本机记录保留，但 AI 不会自动读取这些记录。';$('#messages').append(note);}
   }
   function refreshLearning(){
     const lesson=courseContext?.lesson;
@@ -133,10 +144,15 @@
   function state() {
     $('#send').disabled=busy||checking||(!ready && !$('#question').value.trim());
     $('#cancel').disabled=!busy;
-    for(const id of ['provider','tabs','bind','refresh','open']) $('#'+id).disabled=busy||checking;
+    for(const id of ['provider','tabs','bind','refresh','open','focus-selected','retry']) $('#'+id).disabled=busy||checking;
+    $('#reload-extension').disabled=busy||checking;
   }
   function post(m) { try{port.postMessage(m);}catch{connectionLost();} }
-  const heartbeat=setInterval(()=>post({type:'ping'}),10000);
+  function scanConnection(type='ping'){
+    post({type});
+    if(!ready && !busy && !checking && officialURL)post({type:'locate',provider:activeProvider,url:officialURL});
+  }
+  const heartbeat=setInterval(()=>scanConnection(),10000);
   const replyClock=setInterval(()=>{
     if(busy && replyStarted){
       const elapsed=Math.floor((Date.now()-replyStarted)/1000);
@@ -147,7 +163,7 @@
   function append(role,text) {
     $('.empty')?.remove();
     const record={role,text,provider:activeProvider,tabId:binding?.tabId,time:new Date().toISOString()};
-    if(role==='user')record.question=sendingQuestion;
+    if(role==='user'){record.question=sendingQuestion;if(newOfficialSession){record.newConversation=true;newOfficialSession=false;$('.new-session-note')?.remove();}}
     records.push(record);
     const item=renderRecord(record);$('#messages').scrollTop=$('#messages').scrollHeight;return item;
   }
@@ -174,10 +190,21 @@
     if(!event.altKey && !busy && !checking && $('#question').value.trim())$('#compose').requestSubmit();
   });
   window.addEventListener('pagehide',remember);
-  $('#tabs').addEventListener('change',()=>{ready=false;state();status('标签页已改变，请重新绑定。');});
+  $('#tabs').addEventListener('change',()=>{officialURL=validOfficialURL($('#tabs').selectedOptions[0]?.dataset.url);ready=false;remember();state();status('已选择其他官网对话，点击绑定并检查即可使用。');});
   for(const input of document.querySelectorAll('[id^="selector-"]')) input.addEventListener('input',()=>{ready=false;state();});
-  $('#scan').addEventListener('click',()=>{$('.connection').open=true;post({type:'scan'});$('#scan-result').textContent='正在检查连接，不会重发问题…';});
-  $('#open').addEventListener('click',()=>chrome.tabs.create({url:BRIDGE_PROVIDERS[$('#provider').value].url}));
+  $('#scan').addEventListener('click',()=>{$('.connection').open=true;scanConnection('scan');$('#scan-result').textContent='正在检查连接，不会重发问题…';});
+  async function openOfficial(){
+    if(busy || checking)return;
+    const provider=activeProvider;pendingSend=null;checking=true;state();
+    try{
+      const granted=await chrome.permissions.request({origins:BRIDGE_PROVIDERS[provider].hosts.map(h=>'https://'+h+'/*')});
+      if(provider!==activeProvider)return;
+      checked();
+      if(!granted){state();status('未授予 AI 页面访问权限，对话与草稿已保留。','error');return;}
+      beginConnection('ensure',true,true);
+    }catch(error){checked();state();status(error.message,'error');}
+  }
+  $('#open').addEventListener('click',openOfficial);
   $('#refresh').addEventListener('click',async()=>{
     try {
       const provider=$('#provider').value;
@@ -186,7 +213,7 @@
       post({type:'list',provider});
     }catch(error){status(error.message,'error');}
   });
-  function beginConnection(type='bind',create=false){
+  function beginConnection(type='bind',create=false,open=false){
     ready=false;state();
     if(type==='bind' && !$('#tabs').value){status('先选择一个官网标签页。','error');return;}
     const overrides=Object.fromEntries(['input','send','answer','stop'].map(k=>[k,$('#selector-'+k).value]));
@@ -195,15 +222,31 @@
     const started=Date.now();
     const tick=()=>{const elapsed=Math.min(10,(Date.now()-started)/1000);$('#countdown').textContent=`剩余 ${Math.ceil(10-elapsed)} 秒`;$('#connection-progress').value=elapsed;};
     $('#countdown').hidden=false;$('#connection-progress').hidden=false;tick();countdownTimer=setInterval(tick,250);
-    status(type==='ensure'?'正在准备对话…':'正在检查官网元素…','pending');post({type,create,operation:bindOperation,tabId:Number($('#tabs').value),provider:$('#provider').value,overrides});
+    status(type==='ensure'?'正在准备对话…':'正在检查官网元素…','pending');post({type,create,open,url:officialURL,operation:bindOperation,tabId:Number($('#tabs').value),provider:$('#provider').value,overrides});
   }
   $('#bind').addEventListener('click',()=>beginConnection());
-  $('#retry').addEventListener('click',()=>$('#bind').click());
-  $('#focus-selected').addEventListener('click',async()=>{
-    if(!$('#tabs').value){status('请先选择官网标签页。','error');return;}
-    try{const t=await chrome.tabs.update(Number($('#tabs').value),{active:true});await chrome.windows.update(t.windowId,{focused:true});}catch(error){status('所选标签页已不可用，请重新查找。','error');}
+  $('#retry').addEventListener('click',()=>beginConnection('ensure',false));
+  $('#focus-selected').addEventListener('click',openOfficial);
+  $('#focus').addEventListener('click',()=>{if(busy || checking)post({type:'focus'});else openOfficial();});
+  function showBuildWarning(message){
+    $('#build-warning').hidden=false;$('#build-message').textContent=message;
+    $('#extension-version').textContent=message;
+  }
+  function checkBuild(){
+    clearTimeout(buildTimer);backendBuild=null;
+    $('#extension-version').textContent='正在核对界面与后台版本…';
+    buildTimer=setTimeout(()=>{
+      let version;try{version=chrome.runtime.getManifest?.().version;}catch{sendHost({type:'workbook:assistant-health',alive:false});return;}
+      if(!backendBuild && /^\d+\.\d+\.\d+$/.test(version))showBuildWarning('界面 v'+WORKBOOK_BRIDGE_BUILD+'；已加载扩展 v'+version+'，后台未回应版本核对。请载入本机新版，自动检查暂未确认。');
+    },1500);
+    post({type:'build'});
+  }
+  $('#reload-extension').addEventListener('click',()=>{
+    if(busy || checking)return;
+    if(!remember()){status('当前存档未能安全保存，未重载扩展。请先导出本窗口对话与草稿。','error');return;}
+    try{pendingSend=null;clearTimeout(buildTimer);$('#reload-extension').disabled=true;$('#build-message').textContent='记录已保存，正在载入本机扩展文件…';chrome.runtime.reload();}
+    catch(error){$('#reload-extension').disabled=false;showBuildWarning('载入失败：'+error.message);}
   });
-  $('#focus').addEventListener('click',()=>post({type:'focus'}));
   $('#compose').addEventListener('submit',event=>{
     event.preventDefault();if(busy||checking||!$('#question').value.trim())return;
     let text;try{text=messageText();}catch(error){status(error.message,'error');return;}
@@ -225,11 +268,12 @@
   });
   $('#course-source').addEventListener('change',()=>{courseContext=null;courseNonce=crypto.randomUUID();refreshLearning();$('#course').src=$('#course-source').value+'?bridge=1#/web';});
   $('#export').addEventListener('click',()=>{
-    const url=URL.createObjectURL(new Blob([JSON.stringify({format:'workbook-bridge-v1',records},null,2)],{type:'application/json'}));
+    const url=URL.createObjectURL(new Blob([JSON.stringify({format:'workbook-bridge-v1',provider:activeProvider,records,draft:$('#question').value,instruction:$('#instruction').value},null,2)],{type:'application/json'}));
     const a=document.createElement('a');a.href=url;a.download='官网对话记录.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   });
   function connectionLost(){
     if(!portAlive)return;
+    clearTimeout(buildTimer);
     portAlive=false;interruptedPort ||= busy;pendingSend=null;request=null;checked();ready=false;busy=false;replyStarted=0;state();
     if(answer && interruptedPort){answer.record.status='同步连接中断，未自动重发';answer.pre.parentElement.querySelector('.reply-placeholder').textContent='同步中断，正在恢复连接；请到官网核对本轮回复。';remember();}
     status('同步连接中断，正在自动检查；不会重新发送问题。','error');
@@ -257,13 +301,25 @@
     sendingQuestion=question;busy=true;state();post({type:'send',text});
   }
   function receiveMessage(m){
+    if(m.type==='available'){
+      if(ready || busy || checking || m.provider!==activeProvider || validOfficialURL(m.url)!==officialURL)return;
+      $('#tabs').replaceChildren(new Option(m.title||BRIDGE_PROVIDERS[activeProvider].name,String(m.tabId)));rememberURL(m.url);beginConnection('ensure',false);return;
+    }
+    if(m.type==='build'){
+      clearTimeout(buildTimer);backendBuild=m;
+      const consistent=m.version===WORKBOOK_BRIDGE_BUILD && m.build===WORKBOOK_BRIDGE_BUILD && m.protocol===WORKBOOK_BRIDGE_PROTOCOL;
+      $('#build-warning').hidden=consistent;
+      if(consistent)$('#extension-version').textContent='界面与后台 v'+m.version+' · 每 10 秒检查连接';
+      else showBuildWarning('界面 v'+WORKBOOK_BRIDGE_BUILD+'；已加载扩展 v'+(m.version||'未知')+'，后台代码 v'+(m.build||'未知')+'。请载入本机新版。');
+      return;
+    }
     if(m.type==='pong'){
-      if(m.version)$('#extension-version').textContent='已加载扩展 v'+m.version+' · 每 10 秒检查连接';
       return;
     }
     if(m.type==='health' && (!m.provider || m.provider===activeProvider)){
       $('#scan-result').textContent=m.message;
       if(m.counts)$('#diagnostics').textContent='自动检查：'+JSON.stringify(m.counts,null,2);
+      if(m.url){rememberURL(m.url);remember();}
       return;
     }
     if(m.trace && m.operation===bindOperation) $('#diagnostics').textContent=JSON.stringify(m.trace,null,2);
@@ -271,15 +327,16 @@
       status(m.message,'pending');
     }else if(m.type==='tabs' && m.provider===$('#provider').value){
       ready=false;state();$('#tabs').replaceChildren(new Option(m.tabs.length?'请选择官网对话':'没有找到，请先打开官网登录',''));
-      for(const t of m.tabs) $('#tabs').add(new Option(`${t.title} · ${t.id}`,String(t.id)));
+      for(const t of m.tabs){const option=new Option(`${t.title} · ${t.id}`,String(t.id));option.dataset.url=validOfficialURL(t.url);$('#tabs').add(option);}
       status(`找到 ${m.tabs.length} 个官网标签页。选择新对话后绑定。`);
     }else if(m.type==='session-tab' && m.operation===bindOperation && m.provider===activeProvider){
-      $('#tabs').replaceChildren(new Option(m.title,String(m.tabId)));$('#tabs').value=String(m.tabId);remember();
+      $('#tabs').replaceChildren(new Option(m.title,String(m.tabId)));$('#tabs').value=String(m.tabId);rememberURL(m.url);
+      if(m.newConversation && records.length){newOfficialSession=true;showSessionNote();}remember();
     }else if(m.type==='bound'){
       if(m.operation!==bindOperation)return;
       checked();
       if(m.provider!==$('#provider').value || m.tabId!==Number($('#tabs').value))return;
-      binding={provider:m.provider,tabId:m.tabId};ready=m.ready;state();
+      binding={provider:m.provider,tabId:m.tabId};rememberURL(m.url);ready=m.ready;state();
       $('#connection-summary').textContent=BRIDGE_PROVIDERS[m.provider].name+(m.ready?' · 已绑定标签页 / 更改':' · 需要校准');
       if(m.ready) $('.connection').open=false;
       $('#diagnostics').textContent+='\n元素匹配：'+JSON.stringify(m.counts,null,2);
@@ -291,7 +348,7 @@
     }else if(m.type==='recovering' && m.provider===activeProvider){
       checking=true;ready=false;state();status(m.message,'pending');
     }else if(m.type==='reconnected' && m.provider===activeProvider){
-      checked();ready=m.ready;busy=m.busy;state();
+      checked();rememberURL(m.url);ready=m.ready;busy=m.busy;state();
       status(m.interrupted?'连接已自动恢复。上一轮因页面刷新中断，没有重发；请先核对 AI 页面。':busy?'连接正常，继续等待回复…':'连接已自动恢复，可以继续对话。',busy?'working':'ready');
       if(m.interrupted && answer){answer.record.status='页面刷新中断，未自动重发';answer.pre.parentElement.querySelector('.reply-placeholder').textContent='同步中断，未自动重发。请到官网核对本轮回复。';}
       sendQueued();
@@ -317,10 +374,10 @@
     const active=port;
     port.onDisconnect.addListener(()=>{if(active===port)connectionLost();});
     port.onMessage.addListener(m=>{if(active===port && portAlive)receiveMessage(m);});
+    checkBuild();
   }
   attachPort();
   $('#provider').value=activeProvider;restore(activeProvider);
-  try{$('#extension-version').textContent='已加载扩展 v'+chrome.runtime.getManifest().version+' · 每 10 秒检查连接';}catch{}
   sendHost({type:'workbook:assistant-ready',version:chrome.runtime.getManifest?.().version || 'test'});
   document.addEventListener('keydown',event=>{if(embed && event.key==='Escape')sendHost({type:'workbook:assistant-close'});});
   requestCourse();
