@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>活动搜索 · 练习起点</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main>
+    <p class="caption">Web · DOM 与筛选 · 参考起点</p>
+    <h1>找到一场想参加的活动</h1>
+    <p>已经实现关键词搜索。接下来练习分类筛选与清空，让控件、数量和列表一起更新。</p>
+    <label for="keyword">搜索活动标题</label>
+    <input id="keyword" type="search" placeholder="例如：Go、HTML" autocomplete="off">
+    <p id="count" role="status" aria-live="polite"></p>
+    <ul id="activities" aria-label="匹配的活动"></ul>
+    <p id="empty" hidden>没有匹配活动，请换一个关键词。</p>
+    <p class="caption">数据是本地演示，没有账号、报名或后端。完整任务见本目录 README。</p>
+  </main>
+</body>
+</html>

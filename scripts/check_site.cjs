@@ -5,12 +5,13 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const context = vm.createContext({ window: {} });
-for (const name of ['curriculum', 'adaptations', 'resources', 'ai-guide']) {
+for (const name of ['curriculum', 'adaptations', 'resources', 'ai-guide', 'learning-lab']) {
   const source = fs.readFileSync(path.join(root, 'assets/data', name + '.js'), 'utf8');
   vm.runInContext(source, context, { filename: name + '.js' });
 }
 new vm.Script(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'));
 new vm.Script(fs.readFileSync(path.join(root, 'assets/workbench.js'), 'utf8'));
+new vm.Script(fs.readFileSync(path.join(root, 'assets/learning.js'), 'utf8'));
 const courses = context.window.LEARNING_CURRICULUM;
 const ids = new Set();
 for (const [track, count] of [['web', 14], ['go', 28]]) {
@@ -38,13 +39,63 @@ assert.equal(adaptation.goBeginner02.checks.length, courses.go.lessons[1].checks
 assert(!adaptation.goBeginner02.task.includes('熟悉的 C++'));
 assert(adaptation.webPreviews['web-05'].includes('topbar'));
 const resources = context.window.LEARNING_RESOURCES;
-assert.equal(resources.length, 18);
+assert.equal(resources.length, 23);
 assert.equal(new Set(resources.map(item => item.id)).size, resources.length);
 for (const resource of resources) assert.equal(new URL(resource.url).protocol, 'https:');
 const ai = context.window.AI_LEARNING_GUIDE;
 assert.equal(ai.prompts.length, 10);
 assert.equal(new Set(ai.prompts.map(item => item.id)).size, 10);
 for (const prompt of ai.prompts) assert(prompt.prompt && prompt.why && prompt.nextStep);
+const lab = context.window.LEARNING_LAB;
+assert.equal(lab.topics.length, 24);
+assert.equal(lab.exercises.length, 18);
+const topicIds = new Set(lab.topics.map(item => item.id));
+const exerciseIds = new Set(lab.exercises.map(item => item.id));
+const sourceIds = new Set(lab.sources.map(item => item.id));
+assert.equal(topicIds.size, lab.topics.length);
+assert.equal(exerciseIds.size, lab.exercises.length);
+assert.equal(sourceIds.size, lab.sources.length);
+for (const source of lab.sources) assert.equal(new URL(source.url).protocol, 'https:');
+for (const item of [...lab.topics, ...lab.exercises]) {
+  assert(['web', 'go'].includes(item.track), item.id + ' track');
+  assert(['foundation', 'applied', 'project'].includes(item.level), item.id + ' level');
+  for (const id of item.lessonIds) assert(ids.has(id) && id.startsWith(item.track + '-'), item.id + ' related lesson');
+  if (item.followup !== undefined) assert(item.track === 'web' && Number.isInteger(item.followup) && courses.web.followups[item.followup], item.id + ' followup');
+}
+for (const topic of lab.topics) {
+  for (const field of ['title', 'group', 'summary', 'why', 'example', 'expected', 'pitfall']) assert(typeof topic[field] === 'string' && topic[field].trim(), topic.id + ' ' + field);
+  assert(topic.points.length >= 3 && topic.points.every(pair => pair.length === 2 && pair.every(Boolean)));
+  assert(topic.recall.length === 2 && topic.recall.every(Boolean));
+  for (const id of topic.prerequisites) assert(topicIds.has(id) && id !== topic.id, topic.id + ' prerequisite');
+  for (const id of topic.sourceIds) assert(sourceIds.has(id), topic.id + ' source');
+  assert(lab.exercises.some(exercise => exercise.topicIds.includes(topic.id)), topic.id + ' linked exercise');
+}
+function visitTopic(id, pathIds = new Set()) {
+  assert(!pathIds.has(id), 'cyclic prerequisites at ' + id);
+  const next = new Set(pathIds); next.add(id);
+  for (const prerequisite of lab.topics.find(topic => topic.id === id).prerequisites) visitTopic(prerequisite, next);
+}
+for (const id of topicIds) visitTopic(id);
+for (const id of ids) assert(lab.topics.some(topic => topic.lessonIds.includes(id)), id + ' supplementary explanation');
+for (const exercise of lab.exercises) {
+  for (const field of ['title', 'goal', 'task', 'stretch', 'starter', 'run', 'limitations']) assert(typeof exercise[field] === 'string' && exercise[field].trim(), exercise.id + ' ' + field);
+  assert(Number.isInteger(exercise.minutes) && exercise.minutes > 0);
+  assert(exercise.steps.length === 3 && exercise.checks.length >= 3);
+  assert(exercise.cases.length >= 3 && exercise.cases.every(pair => pair.length === 2 && pair.every(Boolean)));
+  for (const id of exercise.topicIds) assert(topicIds.has(id) && id.startsWith(exercise.track + '-'), exercise.id + ' topic');
+  if (exercise.preview) assert(exercise.track === 'web' && exercise.language === 'html' && exercise.starter.includes('<meta charset="UTF-8">'));
+  if (exercise.files) {
+    const directory = path.resolve(root, exercise.files);
+    assert(directory.startsWith(root + path.sep) && exercise.files.startsWith('exercises/' + exercise.track + '/'), exercise.id + ' exercise directory');
+    assert(fs.existsSync(path.join(directory, 'README.md')));
+    assert(fs.existsSync(path.join(directory, exercise.track === 'web' ? 'index.html' : 'go.mod')));
+  }
+}
+for (const course of Object.values(courses)) for (const stage of course.stages.filter(stage => stage.lessonIds.length)) {
+  const milestone = lab.milestones[stage.id];
+  assert(milestone?.outcome && milestone.evidence, stage.id + ' stage acceptance');
+  for (const id of milestone.exerciseIds) assert(exerciseIds.has(id));
+}
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
   const reference = match[1];
@@ -52,4 +103,4 @@ for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
   assert(fs.existsSync(path.resolve(root, reference)), 'missing asset: ' + reference);
 }
 assert(fs.existsSync(path.join(root, '.nojekyll')));
-console.log('PASS: 42 lessons, 12 followups, 18 resources, 10 AI templates, beginner adaptations and all entry assets.');
+console.log('PASS: 42 lessons, 12 followups, 24 knowledge topics, 18 exercises, 23 resources, 10 AI templates; linked learning coverage and all entry assets.');
