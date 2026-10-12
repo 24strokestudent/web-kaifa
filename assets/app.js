@@ -167,12 +167,12 @@
     const track = state.activeTrack;
     const nextRaw = state.lastLesson && !isDone(state.lastLesson) ? byId[state.lastLesson] : nextLesson(track);
     const next = effectiveLesson(nextRaw.id);
-    const label = next.track === 'go' || next.id.startsWith('go') ? 'Go' : 'Web';
-    main.innerHTML = `<section class="welcome"><div><h1>和 AI 一起学会写代码</h1><p>选一节课，写一小段代码。遇到不懂的地方，把问题问清楚，再回到自己的代码里验证。</p><label class="audience-select" for="audience">我的起点<select id="audience"><option value="new"${state.audience === 'new' ? ' selected' : ''}>第一次写代码</option><option value="experienced"${state.audience === 'experienced' ? ' selected' : ''}>写过代码，想换个方向</option></select></label></div><div class="welcome-sketch" aria-hidden="true"><svg viewBox="0 0 210 180"><path class="sketch-ink" d="M35 145h145M45 141V43l8-9h93l8 9v98"/><rect class="sketch-paper" x="54" y="23" width="112" height="128" rx="4"/><path class="sketch-ink" d="M69 46h56m-56 12h77m-77 29h74m-74 12h48m-48 12h67m-67 12h40"/><path class="sketch-accent" d="M140 60h43l10 10v33h-35l-18 13V60z"/><path class="sketch-ink" d="m158 73-7 8 7 8m18-16 7 8-7 8"/><circle class="sketch-accent" cx="46" cy="128" r="16"/><path class="sketch-ink" d="m39 128 5 5 9-11"/></svg></div></section>
-      <section class="ai-banner" aria-labelledby="ai-home-heading"><div class="ai-banner-copy"><h2 id="ai-home-heading">学到哪儿，问到哪儿</h2><p>${state.audience === 'new' ? '不知道怎么问也没关系。选一个场景，把想做的事写下来，提问台会帮你补上需要的上下文。' : '带上你的做法、代码和报错。先要一个检查点，确认有效后再继续，少一点反复复制。'}</p><div class="ai-banner-tools"><a class="button" href="#/ai?mode=concept">解释一个概念</a><a class="button" href="#/ai?mode=debug">一起找报错</a><a class="button" href="#/ai?mode=quiz">测测是否懂了</a></div><div class="button-row">${button('打开 AI 提问台', '#/ai', true)}<span class="small">复制到你常用的 AI 工具</span></div></div><div class="ai-banner-example"><span>比“帮我写完”更容易得到有用的回答</span><blockquote>“我想让按钮点击后新增一条记录，但列表没有变化。这是我的代码和报错。先告诉我该检查哪里，给一个提示就好。”</blockquote><p class="small">拿到回答后，自己改一处、重试，再解释为什么有效。</p></div></section>
-      ${sectionHead('选一条路线，开始动手', '两条路线都可以从基础开始')}<div class="course-pair">${courseCard('web')}${courseCard('go')}</div>
-      ${sectionHead(state.lastLesson ? '接着上次的地方' : '今天可以先做这一课')}<section class="today-strip"><div class="day-stamp">${label}<b>${String(next.day).padStart(2, '0')}</b></div><div><h3>${escape(next.title)}</h3><p>${escape(next.task)}</p></div>${button('进入这一课', '#/lesson/' + next.id, true)}</section>
-      ${sectionHead('AI 给了提示，接下来怎么做')} ${workflow()} ${sourceLinks()}`;
+    const label = next.track === 'go' ? 'Go' : 'Web';
+    main.innerHTML = `<header class="welcome"><span class="workbook-eyebrow">THE DEVELOPER WORKBOOK / WEB & GO</span><h1>和 AI 一起学会写代码</h1><p>从一个能运行的小作品开始。把目标说清楚，自己动手，再带着真实结果向前一步。</p><label class="audience-select" for="audience">我的起点<select id="audience"><option value="new"${state.audience === 'new' ? ' selected' : ''}>第一次写代码</option><option value="experienced"${state.audience === 'experienced' ? ' selected' : ''}>写过代码，想换个方向</option></select></label></header>
+      <section class="home-start"><span class="workbook-eyebrow">${state.lastLesson ? '接着上次的地方' : '今天，从这里开始'} / ${label} ${String(next.day).padStart(2, '0')}</span><h2>${escape(next.title)}</h2><p>${escape(next.task)}</p><div class="button-row">${button('进入这一课 →', '#/lesson/' + next.id, true)}<span class="small">约 ${next.minutes} 分钟，可以分几次做。</span></div></section>
+      ${sectionHead('选一条路线，慢慢把它做完整', '零基础可以直接开始；已有经验可以先看任务与验收。')}<div class="course-pair">${courseCard('web')}${courseCard('go')}</div>
+      <section class="home-method"><div><h2>学会怎样用 AI 开发</h2><p>描述需求 → 拆小任务 → 带证据排错 → 自己验证。</p></div>${button('看看具体怎么做 ↗', '#/ai-method')}</section>
+      ${sourceLinks()}`;
   }
   function lessonRow(lesson) {
     lesson = effectiveLesson(lesson.id);
@@ -221,6 +221,7 @@
         document.querySelector('#code-preview').srcdoc = '<meta charset="UTF-8"><p style="font:16px/1.7 sans-serif;padding:16px">上次编辑的代码已恢复。检查后点击“运行预览”；也可以先恢复课程示例。</p>';
       } else runPreview(lesson);
     }
+    window.Workbench.mountLesson(lesson);
   }
   function runPreview(lesson) {
     const editor = document.querySelector('#lesson-code');
@@ -345,6 +346,7 @@
       document.querySelector('#completion-message').textContent = isDone(id) ? '已记录完成，仍可以回来复习。' : ready ? '验收和小测已勾好，由你决定是否记录完成。' : '完成这些验收，再答对小测，就可以记录这节课。';
     }
     persist();
+    window.Workbench.refreshProgress(id);
   }
   function exportMarkdown() {
     const lines = ['# 我的 Web / Go 学习记录', '', `导出时间：${new Date().toLocaleString('zh-CN')}`, ''];
@@ -383,7 +385,7 @@
     document.querySelectorAll('[data-nav]').forEach(link => {
       if (link.dataset.nav === nav) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
     });
-    const titles = { home: '开始学习', web: 'Web 开发', go: 'Go 后端', ai: 'AI 提问台', resources: '官方资料', progress: '我的进度', search: '查找课程' };
+    const titles = { home: '开始学习', web: 'Web 开发', go: 'Go 后端', ai: 'AI 提问台', 'ai-method': '怎样用 AI 开发', resources: '官方资料', progress: '我的进度', search: '查找课程' };
     document.querySelector('#breadcrumb').innerHTML = routeKey === 'lesson' || routeKey === 'followup' ? `<a href="#/${nav || 'home'}">${nav === 'go' ? 'Go 后端' : 'Web 开发'}</a> / ${routeKey === 'lesson' ? '课内练习' : '后续阶段'}` : escape(titles[routeKey] || '开始学习');
     document.title = `${routeKey === 'lesson' && byId[parts[1]] ? byId[parts[1]].title : titles[routeKey] || '开发练习册'} · 开发练习册`;
     if (routeKey === 'home') renderHome();
@@ -391,6 +393,7 @@
     else if (routeKey === 'lesson') renderLesson(parts[1]);
     else if (routeKey === 'followup') renderFollowup(parts[1], Number(parts[2]));
     else if (routeKey === 'ai') renderAI(params);
+    else if (routeKey === 'ai-method') main.innerHTML = window.Workbench.methodPage();
     else if (routeKey === 'resources') renderResources();
     else if (routeKey === 'progress') renderProgress();
     else if (routeKey === 'search') renderSearch(params.get('q') || '');
@@ -401,6 +404,7 @@
     window.scrollTo({ top: 0, behavior: 'instant' });
     main.focus({ preventScroll: true });
     updateSidebar();
+    window.Workbench.routeChanged(routeKey, routeKey === 'lesson' && knownLesson(parts[1]) ? effectiveLesson(parts[1]) : null);
   }
   document.querySelector('#menu-toggle').addEventListener('click', () => {
     const sidebar = document.querySelector('#sidebar');
@@ -487,6 +491,7 @@
     }
     if (action === 'undo' && undoAction) { const undo = undoAction; undoAction = null; undo(); document.querySelector('#notice').hidden = true; clearTimeout(noticeTimer); }
   });
+  window.Workbench.configure({ copy: copyText, lesson: effectiveLesson, draft: id => state.drafts[id], completed: () => [...state.completed] });
   window.addEventListener('hashchange', route);
   route();
 })();

@@ -46,3 +46,28 @@
   --dur-fast: 140ms;
   --dur-base: 220ms;
 }
+
+/* Approved workbook theme: shared by every production route. */
+:root {
+  --color-paper: #faf9f5;
+  --color-surface: #fdfcf9;
+  --color-paper-2: #f2f0e9;
+  --color-ink: #302e2b;
+  --color-muted: #706c65;
+  --color-rule: #dedbd2;
+  --color-accent: #9b4c34;
+  --color-accent-ink: #faf9f5;
+  --color-tint: #eee2d9;
+  --color-code: #eeece5;
+  --color-code-ink: #302e2b;
+  --color-focus: #8b4b37;
+  --color-overlay: #25221c60;
+  --font-display: Georgia, "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --font-body: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --radius-sm: 7px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --text-display: clamp(1.8rem, 2.3vw, 2.4rem);
+  --rail-width: 224px;
+  --assistant-width: 354px;
+}

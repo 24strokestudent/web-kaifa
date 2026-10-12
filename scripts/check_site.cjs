@@ -10,6 +10,7 @@ for (const name of ['curriculum', 'adaptations', 'resources', 'ai-guide']) {
   vm.runInContext(source, context, { filename: name + '.js' });
 }
 new vm.Script(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'));
+new vm.Script(fs.readFileSync(path.join(root, 'assets/workbench.js'), 'utf8'));
 const courses = context.window.LEARNING_CURRICULUM;
 const ids = new Set();
 for (const [track, count] of [['web', 14], ['go', 28]]) {
