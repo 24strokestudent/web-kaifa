@@ -30,13 +30,23 @@ Kimi 正文排除思考区，识别生成中的 loading 控件；Gemini 排除 Q
 
 支持线上 `https://zhouwu97.github.io/web-kaifa/` 以及本机 `http://localhost:<端口>/`、`http://127.0.0.1:<端口>/` 根目录页面。网站入口使用相同端口时学习记录可直接保留；不同地址或端口的学习存档由浏览器隔离，请在原页面导出后用网站既有导入流程迁移，不自动覆盖。
 
-扩展未启用或旧版本尚无网站连接能力时，网站明确显示“扩展未连接”，保留本地整理和安装帮助。安装本版本只需让浏览器加载一次新版扩展并重新打开学习页，不需再次手动绑定原 AI 对话。已存在的官方标签页可后台运行。
+扩展未启用或旧版本尚无网站连接能力时，网站明确显示“扩展未连接”，保留本地整理和安装帮助。安装本版本只需让浏览器加载一次新版扩展并点击扩展图标连接学习页，不需再次手动绑定原 AI 对话。已存在的官方标签页可后台运行。
 
 课程、知识主题和练习详情共用上下文，换页刷新内容并取消代码带入。发送后折叠学习辅助以扩大阅读空间，选择问法时重新展开。消息气泡只显示问题正文，课程与代码折叠在“查看本次发送的学习内容”；完整原文保留在聊天记录与导出中。同一份 tokens.css 通过 `node scripts/sync_bridge_theme.cjs` 同步到扩展 `theme.css`，`--check` 检查一致性。
 
 消息只在指定来源、指定窗口与随机编号一致时交换；网站消息不能直接触发模型发送。模型发送仍由扩展自己的表单和权限流程执行。代码预览 iframe 不参与此通道。此嵌入方式依据 Chrome 官方 [Web accessible resources](https://developer.chrome.com/docs/extensions/reference/manifest/web-accessible-resources) 与 [Content scripts](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts) 文档实现。
 
 ## 安装与启动
+
+### 0.2.1：连接已安装扩展
+
+网站右侧的“连接扩展”打开连接检查，提供“连接已安装扩展”，先探测当前浏览器中的扩展回应，不要求重新安装。“未收到扩展回应”不等于未安装；已检测到扩展但面板握手失败时，显示版本、错误阶段和重新连接按钮。等待秒数随时间减少，超时保留问题草稿。
+
+修正扩展图标补注入已打开学习页时缺少网站 host_permissions 的故障。更新扩展后，自动为已打开的正式学习页补充连接脚本；再次注入会清理旧监听器，版本变更重新加载聊天面板，不重发问题、不重新绑定官网。学习网站域名权限用于此连接；AI 官网权限仍在首次使用该平台时单独请求。实现依据官方 [程序化注入的权限要求](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts#inject-programmatically)。
+
+旧版 0.2.0 已经加载到浏览器内的代码不会随网站部署自动更新，需在扩展管理页载入 0.2.1 一次。随后点击扩展图标即可连接当前学习页，无需反复刷新或重新绑定 AI。网页无法枚举所有已安装扩展，也不能自动安装扩展；本原型尚未上架商店，安装说明是备用入口。
+
+### 首次安装
 
 1. 在自己平时登录 AI 官网的 **同一个 Chrome / Edge 浏览器配置文件** 中打开 `chrome://extensions` 或 `edge://extensions`。
 2. 开启“开发者模式”，点击“加载已解压的扩展程序”，选择本 README 所在的 `ai-browser-bridge` 文件夹（里面应直接包含 manifest.json）。不需要安装 Node，不需要 API Key。
@@ -46,7 +56,7 @@ Kimi 正文排除思考区，识别生成中的 loading 控件；Gemini 排除 Q
 6. 若状态显示输入/发送匹配成功，先发送 `请只回复：桥接测试成功。`。到官网核对收到的消息，再回工作台查看真实回复是否逐段更新。
 7. 测长回答可发送 `请分五段解释 HTML、CSS 和 JavaScript 的分工。`。检查官网文字与工作台是否一致，并测试第二轮追问。这两条验证会使用官网当前账号额度。
 
-初次安装后的官网标签页不必刷新，绑定时才注入桥接脚本。更新扩展需要让浏览器载入新版本并重新打开学习页；不要求刷新 AI 官网，连接时会替换旧监听器。
+初次安装后的官网标签页不必刷新，绑定时才注入桥接脚本。更新扩展需要让浏览器载入新版本一次；0.2.1 自动连接已打开的学习页，也可点扩展图标连接，不要求刷新 AI 官网或重新绑定。
 
 ## 七家适配状态
 
@@ -82,7 +92,7 @@ Kimi 正文排除思考区，识别生成中的 loading 控件；Gemini 排除 Q
 
 课程嵌入扩展工作台后，浏览器的存储分区可能与直接打开网站时不同；已有学习记录若没有显示，请从原网页导出，再用课程原有的可撤销导入功能迁入，不要清空原记录。
 
-当前不支持附件、语音、工具结果、官网全部历史导入、历史恢复、云同步和自动新建对话。富文本发送使用浏览器编辑命令；某些官网会拒绝合成事件，需实际验证。回复识别要求新增完整消息节点，虚拟列表复用或多块回复可能读不到/不完整。没有去除官网 CSP、代理登录或绕过服务限制。
+当前不支持附件、语音、工具结果、官网全部历史导入、历史恢复和云同步。富文本发送使用浏览器编辑命令；某些官网会拒绝合成事件，需实际验证。回复识别要求新增完整消息节点，虚拟列表复用或多块回复可能读不到/不完整。没有去除官网 CSP、代理登录或绕过服务限制。
 
 ## 验证
 
@@ -96,6 +106,7 @@ node projects/web/ai-browser-bridge/test_auto_session.cjs
 node projects/web/ai-browser-bridge/test_auto_browser.cjs
 node projects/web/ai-browser-bridge/test_course_context.cjs
 node projects/web/ai-browser-bridge/test_unified_site.cjs
+node projects/web/ai-browser-bridge/test_site_connection.cjs
 node scripts/sync_bridge_theme.cjs --check
 node scripts/check_site.cjs
 # 启动仓库静态服务器后运行

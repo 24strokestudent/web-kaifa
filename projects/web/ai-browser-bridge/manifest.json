@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "开发练习册 · 官网对话桥接原型",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "在自己的学习工作台中操作已登录的 AI 官网标签页。实验原型，不使用模型 API。",
   "permissions": [
     "tabs",
@@ -17,6 +17,11 @@
     "https://kimi.moonshot.cn/*",
     "https://www.doubao.com/*",
     "https://chatglm.cn/*"
+  ],
+  "host_permissions": [
+    "https://zhouwu97.github.io/web-kaifa/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "background.js"
