@@ -170,6 +170,7 @@
     const label = next.track === 'go' ? 'Go' : 'Web';
     main.innerHTML = `<header class="welcome"><span class="workbook-eyebrow">THE DEVELOPER WORKBOOK / WEB & GO</span><h1>和 AI 一起学会写代码</h1><p>从一个能运行的小作品开始。把目标说清楚，自己动手，再带着真实结果向前一步。</p><label class="audience-select" for="audience">我的起点<select id="audience"><option value="new"${state.audience === 'new' ? ' selected' : ''}>第一次写代码</option><option value="experienced"${state.audience === 'experienced' ? ' selected' : ''}>写过代码，想换个方向</option></select></label></header>
       <section class="home-start"><span class="workbook-eyebrow">${state.lastLesson ? '接着上次的地方' : '今天，从这里开始'} / ${label} ${String(next.day).padStart(2, '0')}</span><h2>${escape(next.title)}</h2><p>${escape(next.task)}</p><div class="button-row">${button('进入这一课 →', '#/lesson/' + next.id, true)}<span class="small">约 ${next.minutes} 分钟，可以分几次做。</span></div></section>
+      ${window.LearningLab.homeMarkup()}
       ${sectionHead('选一条路线，慢慢把它做完整', '零基础可以直接开始；已有经验可以先看任务与验收。')}<div class="course-pair">${courseCard('web')}${courseCard('go')}</div>
       <section class="home-method"><div><h2>学会怎样用 AI 开发</h2><p>描述需求 → 拆小任务 → 带证据排错 → 自己验证。</p></div>${button('看看具体怎么做 ↗', '#/ai-method')}</section>
       ${sourceLinks()}`;
@@ -184,14 +185,15 @@
     const course = courses[track];
     main.innerHTML = pageHeading(track === 'web' ? '从第一张网页开始' : '从一个 Go 程序开始', trackDescription(track))
       + `<div class="callout"><strong>${state.audience === 'new' ? '还没写过代码？' : '已经会一点编程？'}</strong><p>${state.audience === 'new' ? (track === 'web' ? '从第 1 课创建文件和打开页面开始。遇到新词可以直接在 AI 提问台要求解释，一次完成一个动作。' : '先做第 1 课的安装与运行，再学变量、函数和数据结构。Go 教材里的 C++ 对照可以先跳过；没有 C++ 基础也可以按顺序练习。') : (track === 'web' ? '先看每课的动手任务和验收。能独立完成再跳过阅读；布局、浏览器和无障碍仍值得亲手试。' : '优先检查 Go 与已有语言不同的地方：slice 共享、error、接口和并发。通过实际练习后，再进入 HTTP 与数据库。')}</p></div>`
-      + course.stages.filter(stage => stage.lessonIds.length).map(stage => `<section class="stage"><div class="stage-header"><h2>${escape(stage.title)}</h2><span>${escape(stage.range)}</span></div><p class="stage-description">${escape(stage.description)}</p><div class="lesson-list">${stage.lessonIds.map(id => lessonRow(byId[id])).join('')}</div></section>`).join('')
+      + window.LearningLab.trackMarkup(track)
+      + course.stages.filter(stage => stage.lessonIds.length).map(stage => `<section class="stage"><div class="stage-header"><h2>${escape(stage.title)}</h2><span>${escape(stage.range)}</span></div><p class="stage-description">${escape(stage.description)}</p>${window.LearningLab.stageMarkup(stage.id)}<div class="lesson-list">${stage.lessonIds.map(id => lessonRow(byId[id])).join('')}</div></section>`).join('')
       + (course.followups?.length ? `${sectionHead('起步之后，继续往哪走', '前两周只是开始，后面的教材也在这里')}<div class="followup-grid">${course.followups.map((followup, i) => `<a class="followup-card" href="#/followup/${track}/${i}"><small>${escape(followup.range)}</small><h3>${escape(followup.title)}</h3><p>${escape(followup.description)}</p><span>查看任务与完整讲义 →</span></a>`).join('')}</div>` : `<div class="callout"><strong>把练习连成一个项目</strong><p>第 7 天开始写 HTTP，第 14 天检查持久化 CRUD，第 21 天补上测试和运行说明，第 28 天验收用户隔离与部署。每个阶段都留下真实结果。</p></div>`)
       + sourceLinks();
   }
   function renderFollowup(track, index) {
     const item = courses[track]?.followups?.[index];
     if (!item) return renderMissing();
-    main.innerHTML = pageHeading(item.title, item.description) + `<div class="lesson-meta"><span>${escape(item.range)}</span><span>后续阶段 · 按掌握情况安排</span></div><section class="task-box"><h2>这阶段要做什么</h2><p>${escape(item.task)}</p></section>${sectionHead('检查做到了什么')}<ul>${item.checks.map(check => `<li>${escape(check)}</li>`).join('')}</ul><div class="callout">这部分是后续阶段的讲义与任务，暂不计入前 14 天的课时进度。可以把自己的成果和复盘保存在仓库里。</div><details><summary>展开完整阶段讲义</summary><div class="details-body markdown">${markdown(item.sourceSection)}</div></details><div class="button-row">${button('带着这个项目问 AI', '#/ai?template=project-breakdown', true)}${button('回到 Web 路线', '#/' + track)}</div>`;
+    main.innerHTML = pageHeading(item.title, item.description) + `<div class="lesson-meta"><span>${escape(item.range)}</span><span>后续阶段 · 按掌握情况安排</span></div><section class="task-box"><h2>这阶段要做什么</h2><p>${escape(item.task)}</p></section>${sectionHead('检查做到了什么')}<ul>${item.checks.map(check => `<li>${escape(check)}</li>`).join('')}</ul><div class="callout">这部分是后续阶段的讲义与任务，暂不计入前 14 天的课时进度。可以把自己的成果和复盘保存在仓库里。</div>${window.LearningLab.followupMarkup(track, index)}<details><summary>展开完整阶段讲义</summary><div class="details-body markdown">${markdown(item.sourceSection)}</div></details><div class="button-row">${button('带着这个项目问 AI', '#/ai?template=project-breakdown', true)}${button('回到 Web 路线', '#/' + track)}</div>`;
   }
   function quizMarkup(lesson) {
     const selected = state.quiz[lesson.id];
@@ -210,6 +212,7 @@
     main.innerHTML = `<header class="lesson-header"><h1>${escape(lesson.title)}</h1><div class="lesson-meta"><span>${lesson.track === 'web' ? 'Web 开发' : 'Go 后端'} · 第 ${lesson.day} 课</span><span>约 ${lesson.minutes} 分钟，可分几次做</span><span>${isDone(id) ? '✓ 已完成' : '待练习'}</span></div><p>${escape(lesson.summary)}</p><ul class="concept-list">${lesson.concepts.map(item => `<li>${escape(item)}</li>`).join('')}</ul></header>
       ${id === 'go-02' && state.audience === 'new' ? '<div class="callout"><strong>没有 C++ 基础也可以做。</strong><p>不用先学另一门语言。直接练习：输入几个分数，用 Go 的循环求总和，用 if 判断是否及格，再试空输入和非法分数。教材中的 C++ 对照可以先跳过。</p></div>' : ''}
       <div class="lesson-grid"><div class="lesson-main"><section class="task-box"><h2>这一课，动手做什么</h2><p>${escape(lesson.task)}</p></section>
+      ${window.LearningLab.lessonMarkup(lesson)}
       <section><h2>先理解，再试一试</h2><p>先读讲义中的一个知识点，再修改示例，看结果是否和你预计的一样。</p><details><summary>打开这一课的完整讲义</summary><div class="details-body markdown">${markdown(lesson.sourceMarkdown)}</div></details><details><summary>卡住了，先看一个提示</summary><div class="details-body hint">${escape(lesson.hint)}</div></details></section>
       ${code || canPreview ? `<section><h2>${canPreview ? '在这里改代码，看真实效果' : '拿到电脑上运行'}</h2><div class="code-panel"><div class="code-tools"><label for="lesson-code">${escape(lesson.language.toUpperCase())} · 可编辑参考片段</label><div class="button-row"><button class="button small" data-action="copy-code">复制代码</button>${canPreview ? '<button class="button small primary" data-action="run-preview">运行预览</button>' : ''}</div></div><textarea class="code-editor" id="lesson-code" spellcheck="false" maxlength="30000" aria-describedby="code-note">${escape(code)}</textarea>${canPreview ? '<div class="preview-label">实际预览 · 在隔离的页面里运行</div><iframe id="code-preview" class="preview-frame" sandbox="allow-scripts" title="当前课程代码的实际预览"></iframe>' : ''}</div><p class="code-note" id="code-note">${canPreview ? '修改后点击“运行预览”。这里只运行网页片段，不能请求外部接口；需要服务器的练习请按讲义在本机运行。' : '这是参考片段，有些需要课程项目的其他文件。Go / SQL 不在本网页执行：先在讲义指定的项目目录保存文件，再运行命令并记录结果。'}</p><button class="button quiet small" data-action="reset-code">恢复课程示例</button></section>` : ''}
       <section id="lesson-quiz"><h2>合上讲义，试着判断</h2><div id="quiz-content">${quizMarkup(lesson)}</div></section>
@@ -318,7 +321,7 @@
     return resources.filter(item => resourceFilter === 'all' || item.track === resourceFilter).map(item => `<a class="resource" href="${escape(item.url)}" target="_blank" rel="noopener noreferrer"><h2>${escape(item.title)} <span aria-hidden="true">↗</span></h2><p>${escape(item.description)}</p><small>${escape(item.stage)} · ${escape(item.language)} · ${item.track === 'go' ? 'Go' : item.track === 'web' ? 'Web' : '通用'}</small></a>`).join('');
   }
   function renderResources() {
-    main.innerHTML = pageHeading('要查的时候，有地方查', '先跟着课程做。遇到具体问题，再从这些官方入口查对应概念，不必一次读完。')
+    main.innerHTML = pageHeading('要查的时候，有地方查', '官方文档用来核对概念，社区课程与练习站点用来找任务。按当前问题选一份资料，再把结果带回自己的代码。')
       + `<div class="filters" aria-label="资料筛选">${filterButtons('resource', resourceFilter)}</div><div id="resource-list" class="resource-list">${resourcesMarkup()}</div><div class="callout"><strong>查资料时看清环境。</strong><p>Go 官方数据库教程使用 MySQL，本站课程项目使用 PostgreSQL；驱动、占位符与配置需要对应。GitHub Pages 只运行静态网页，Go API 要在本机或另一台服务器启动。</p></div><p class="small hint">入口核验于 2026-10-12。第三方页面和工具版本可能继续更新，使用时留意当前官方说明。</p>${sourceLinks()}`;
   }
   function renderProgress() {
@@ -329,8 +332,11 @@
   function renderSearch(query) {
     const normalized = query.trim().toLowerCase();
     const results = normalized ? allLessons.filter(lesson => [lesson.title, lesson.summary, lesson.task, ...lesson.concepts, lesson.sourceMarkdown].join(' ').toLowerCase().includes(normalized)) : [];
-    main.innerHTML = pageHeading(normalized ? `查找“${query.slice(0, 60)}”` : '先写一个想找的词', normalized ? `找到 ${results.length} 节相关课程。试试知识点、错误名或想做的功能。` : '可以搜索 HTML、切片、HTTP、测试或数据库。')
-      + (results.length ? `<div class="lesson-list">${results.map(lessonRow).join('')}</div>` : `<div class="empty-state"><h2>${normalized ? '换个词再找找' : '课程也可以按路线找'}</h2><p>${normalized ? '试试更短的词，例如“表单”“error”或“SQL”。上方搜索框随时可以重试。' : 'Web 和 Go 路线里有全部课程。'}</p><div class="button-row">${button('Web 路线', '#/web', true)}${button('Go 路线', '#/go')}</div></div>`);
+    const labResults = window.LearningLab.search(normalized);
+    const hasResults = results.length || labResults.topics.length || labResults.exercises.length;
+    main.innerHTML = pageHeading(normalized ? `查找“${query.slice(0, 60)}”` : '先写一个想找的词', normalized ? `找到 ${results.length} 节课程、${labResults.topics.length} 个知识主题、${labResults.exercises.length} 个练习。` : '可以搜索 HTML、切片、HTTP、测试或数据库。')
+      + (results.length ? `<section><h2>相关课程 · ${results.length}</h2><div class="lesson-list">${results.map(lessonRow).join('')}</div></section>` : hasResults ? '' : `<div class="empty-state"><h2>${normalized ? '换个词再找找' : '课程也可以按路线找'}</h2><p>${normalized ? '试试更短的词，例如“表单”“error”或“SQL”。上方搜索框随时可以重试。' : 'Web 和 Go 路线里有全部课程。'}</p><div class="button-row">${button('Web 路线', '#/web', true)}${button('Go 路线', '#/go')}</div></div>`)
+      + window.LearningLab.searchMarkup(normalized);
   }
   function renderMissing() {
     main.innerHTML = pageHeading('这里还没有这节课', '链接可能不完整，先回路线中找找。') + `<div class="button-row">${button('Web 路线', '#/web', true)}${button('Go 路线', '#/go')}</div>`;
@@ -381,17 +387,23 @@
     const parts = path.split('/');
     const params = new URLSearchParams(query);
     routeKey = parts[0];
-    const nav = routeKey === 'lesson' ? byId[parts[1]]?.track : routeKey === 'followup' ? parts[1] : routeKey;
+    const nav = routeKey === 'lesson' ? byId[parts[1]]?.track : routeKey === 'followup' ? parts[1] : routeKey === 'topic' ? 'knowledge' : routeKey === 'exercise' ? 'practice' : routeKey;
     document.querySelectorAll('[data-nav]').forEach(link => {
       if (link.dataset.nav === nav) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
     });
-    const titles = { home: '开始学习', web: 'Web 开发', go: 'Go 后端', ai: 'AI 提问台', 'ai-method': '怎样用 AI 开发', resources: '官方资料', progress: '我的进度', search: '查找课程' };
-    document.querySelector('#breadcrumb').innerHTML = routeKey === 'lesson' || routeKey === 'followup' ? `<a href="#/${nav || 'home'}">${nav === 'go' ? 'Go 后端' : 'Web 开发'}</a> / ${routeKey === 'lesson' ? '课内练习' : '后续阶段'}` : escape(titles[routeKey] || '开始学习');
-    document.title = `${routeKey === 'lesson' && byId[parts[1]] ? byId[parts[1]].title : titles[routeKey] || '开发练习册'} · 开发练习册`;
+    const titles = { home: '开始学习', web: 'Web 开发', go: 'Go 后端', knowledge: '知识地图', practice: '练习工坊', ai: 'AI 提问台', 'ai-method': '怎样用 AI 开发', resources: '资料与参考', progress: '我的进度', search: '查找学习内容' };
+    const labDetail = routeKey === 'topic' ? window.LEARNING_LAB.topics.find(item => item.id === parts[1]) : routeKey === 'exercise' ? window.LEARNING_LAB.exercises.find(item => item.id === parts[1]) : null;
+    document.querySelector('#breadcrumb').innerHTML = routeKey === 'lesson' || routeKey === 'followup' ? `<a href="#/${nav || 'home'}">${nav === 'go' ? 'Go 后端' : 'Web 开发'}</a> / ${routeKey === 'lesson' ? '课内练习' : '后续阶段'}` : labDetail ? `<a href="#/${nav}">${titles[nav]}</a> / ${routeKey === 'topic' ? '概念讲解' : '练习任务'}` : escape(titles[routeKey] || '开始学习');
+    document.title = `${routeKey === 'lesson' && byId[parts[1]] ? byId[parts[1]].title : labDetail?.title || titles[routeKey] || '开发练习册'} · 开发练习册`;
     if (routeKey === 'home') renderHome();
     else if (routeKey === 'web' || routeKey === 'go') renderTrack(routeKey);
     else if (routeKey === 'lesson') renderLesson(parts[1]);
     else if (routeKey === 'followup') renderFollowup(parts[1], Number(parts[2]));
+    else if (routeKey === 'knowledge' || routeKey === 'practice') main.innerHTML = window.LearningLab.catalogueMarkup(routeKey, params);
+    else if (routeKey === 'topic' || routeKey === 'exercise') {
+      const content = routeKey === 'topic' ? window.LearningLab.topicMarkup(parts[1]) : window.LearningLab.exerciseMarkup(parts[1]);
+      if (content === null) renderMissing(); else main.innerHTML = content;
+    }
     else if (routeKey === 'ai') renderAI(params);
     else if (routeKey === 'ai-method') main.innerHTML = window.Workbench.methodPage();
     else if (routeKey === 'resources') renderResources();
@@ -492,6 +504,7 @@
     if (action === 'undo' && undoAction) { const undo = undoAction; undoAction = null; undo(); document.querySelector('#notice').hidden = true; clearTimeout(noticeTimer); }
   });
   window.Workbench.configure({ copy: copyText, lesson: effectiveLesson, draft: id => state.drafts[id], completed: () => [...state.completed] });
+  window.LearningLab.configure({ copy: copyText });
   window.addEventListener('hashchange', route);
   route();
 })();

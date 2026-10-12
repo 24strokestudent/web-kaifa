@@ -10,17 +10,21 @@
 
 - 选择“第一次写代码”或“写过代码”，按自己的起点进入路线。
 - 学习 Web 前 14 天与 Go 28 天，每节有任务、完整讲义、提示、验收与小测。Web 后续前端 / 全栈阶段也有入口。
+- 用知识地图回看 24 个 Web / Go 主题，每个都有解释、短例子、误区与复习问题；JavaScript、DOM 和请求专题衔接后续阶段。
+- 在练习工坊挑选 18 个分层任务，按起步提示、独立实现和加练要求练习，用输入输出表验收；四套配套 Web / Go 例子可在本机运行。
 - 修改 Web 示例，在隔离预览中看到真实效果；Go 和 SQL 按讲义在自己的电脑上运行。
 - 带着当前课程、自己的代码和报错整理 AI 提问；也可以复制 10 个具体场景模板。
 - 在同一工作台切换本课任务、代码、验收与笔记；右侧 AI 助教可按需带入课程和代码，打开后正文缩窄，手机上上下排列。
 - 阅读“怎样用 AI 开发”，练习描述需求、拆小任务、带证据排错与自己验证。
 - 保存课内笔记和代码草稿，导出 / 导入 JSON，或导出 Markdown 留在仓库。
 
-本站没有在线 AI 接口，不要求 API Key。提问台只整理文字，由你复制到常用的 AI 工具。进度保存在当前浏览器，不会自动同步到 GitHub。原互动手册的记录与新网页分开保存。
+本站不使用付费模型 API，不要求 API Key。未连接扩展时提问台整理可复制文字；连接扩展后可直接在右侧使用自己的 AI 官网对话。进度保存在当前浏览器，不会自动同步到 GitHub。原互动手册的记录与新网页分开保存。
 
-另有可手动安装的 [官网对话桥接扩展原型](projects/web/ai-browser-bridge/README.md)：在自己的窗口中操作已登录的 AI 官网标签页，不使用付费模型 API。七家候选适配器的真实账号验证尚未完成；原型与本站默认的本地提问工具分开。
+另有可手动安装的 [官网对话桥接扩展原型](projects/web/ai-browser-bridge/README.md)：在自己的窗口中操作已登录的 AI 官网标签页，不使用付费模型 API。七家候选适配器的真实账号验证尚未完成；安装新版扩展后直接使用本站右侧的同一份聊天界面；未安装时保留本地提问工具。
 
 网页使用方法见 [学习网站说明](docs/site-guide.md)。
+
+内容参考了 MDN、The Odin Project、Go 官方教程、Go by Example 与 Exercism 的课程与练习组织方式。具体依据与改动范围见 [知识与练习优化记录](docs/learning-content-upgrade.md)。补充讲解由本仓库编写，原教材保持原样。
 
 ## 从这里开始
 
@@ -93,8 +97,11 @@ python scripts/check_materials.py
 node scripts/check_site.cjs
 node scripts/test_site.cjs
 node scripts/test_workbench.cjs
+node scripts/test_learning.cjs
 ```
 
 浏览器集成检查位于 `scripts/test_site.cjs`，需要 Playwright 和本机 Edge，测试前先启动上述服务器。它覆盖课程入口、代码预览、完成规则、AI 上下文、记录备份和移动端布局；不要求学习者运行这些开发检查。
 
 工作台扩展检查位于 `scripts/test_workbench.cjs`，使用相同环境。设计与审核记录见 [工作台改版说明](docs/workbench-redesign.md)。AI 服务选择仅表示工具偏好，当前没有真实登录、API 调用或流式回答。
+
+知识与练习检查位于 `scripts/test_learning.cjs`，使用同一服务和浏览器环境，覆盖 44 个新增内容路由、筛选地址恢复、跨内容搜索、复制清单、隔离演示与配套 Web 练习的真实失败场景。配套 Go 练习的 `go test ./...` 在各自模块目录执行。

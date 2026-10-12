@@ -60,7 +60,7 @@ fs.mkdirSync(qa, { recursive: true });
     assert(await page.locator('#connection-dialog').evaluate(dialog => dialog.open));
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#assistant-provider-name').textContent(), 'DeepSeek');
-    assert((await page.locator('#assistant-provider').textContent()).includes('未接入'));
+    assert((await page.locator('#assistant-provider').textContent()).includes('本地提问'));
     await go('#/ai-method');
     assert.equal(await page.locator('main h1').textContent(), '怎样用 AI 开发');
     assert.equal(await page.locator('#assistant-task').isDisabled(), true);

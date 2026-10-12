@@ -2,7 +2,9 @@
   const $=s=>document.querySelector(s);
   let port=chrome.runtime.connect({name:'workbook'}), ready=false, busy=false, request=null, answer=null, binding=null;
   let records=[];
-  let courseContext=null,courseNonce=null;
+  const embed=globalThis.WORKBOOK_EMBED;
+  if(embed){$('#course').remove();$('#close-embedded').hidden=false;}else $('#course').src=$('#course').dataset.src;
+  let courseContext=null,courseNonce=embed?.channel || null;
   const STORAGE='workbook-bridge-conversations-v1';
   let saved={},activeProvider='gpt',saveBlocked=false,lastSavedRaw=null;
   try { const raw=localStorage.getItem(STORAGE);lastSavedRaw=raw; if(raw){const data=JSON.parse(raw);if(data.version!==1 || !data.sessions || typeof data.sessions!=='object')throw Error('bad storage');for(const [key,v] of Object.entries(data.sessions)){if(!BRIDGE_PROVIDERS[key] || !v || !Array.isArray(v.records) || v.records.some(r=>!r || !['user','assistant'].includes(r.role) || typeof r.text!=='string') || !Array.isArray(v.options))throw Error('bad conversation');}saved=data.sessions;activeProvider=BRIDGE_PROVIDERS[data.active]?data.active:'gpt';} }
@@ -19,6 +21,7 @@
     $('#messages').replaceChildren();
     for(const record of records) renderRecord(record);
     if(!records.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='直接输入问题。首次发送会自动打开一段新对话；登录完成后在这里继续。';$('#messages').append(empty);}
+    $('#messages').scrollTop=$('#messages').scrollHeight;
     $('#question').value=previous?.draft || '';
     $('#include-task').checked=previous?.includeTask!==false;$('#include-code').checked=previous?.includeCode===true && previous?.contextLessonId===courseContext?.lesson?.id;refreshLearning();
     $('#tabs').replaceChildren(...(previous?.options||[{value:'',text:'先连接这个 AI'}]).map(o=>new Option(o.text,o.value)));
@@ -32,7 +35,12 @@
   function renderRecord(record){
     const item=document.createElement('article');item.className='message '+record.role;
     const label=document.createElement('strong');label.textContent=record.role==='user'?'你':BRIDGE_PROVIDERS[record.provider]?.name || 'AI';
-    const pre=document.createElement('pre');pre.textContent=record.text;item.append(label,pre);$('#messages').append(item);return {pre,record};
+    const pre=document.createElement('pre');pre.textContent=record.text;item.append(label,pre);
+    if(record.role==='user' && record.text.startsWith('课程：') && record.text.includes('\n\n我的问题：')){
+      pre.textContent=record.text.split('\n\n我的问题：')[1].split('\n\n请一次只指导')[0];
+      const details=document.createElement('details'),summary=document.createElement('summary'),full=document.createElement('pre');summary.textContent='查看本次发送的学习内容';full.textContent=record.text;details.append(summary,full);item.append(details);
+    }
+    $('#messages').append(item);return {pre,record};
   }
   function refreshLearning(){
     const lesson=courseContext?.lesson;
@@ -52,14 +60,24 @@
     if(text.length>12000)throw Error('问题与课程、代码合计超过 12000 字，请精简代码或取消带入代码；没有截断或发送。');
     return text;
   }
+  const courseWindow=()=>embed?parent:$('#course').contentWindow;
+  const courseOrigin=()=>embed?embed.origin:new URL($('#course').src).origin;
+  const sendHost=value=>{if(embed)parent.postMessage({...value,nonce:courseNonce},embed.origin);};
   function requestCourse(){
-    courseContext=null;courseNonce=crypto.randomUUID();refreshLearning();
-    $('#course').contentWindow.postMessage({type:'workbook:course-request',nonce:courseNonce},new URL($('#course').src).origin);
+    courseContext=null;if(!embed)courseNonce=crypto.randomUUID();refreshLearning();
+    courseWindow().postMessage({type:'workbook:course-request',nonce:courseNonce},courseOrigin());
   }
-  $('#course').addEventListener('load',requestCourse);
+  if(!embed)$('#course').addEventListener('load',requestCourse);
+  $('#close-embedded').addEventListener('click',()=>sendHost({type:'workbook:assistant-close'}));
   window.addEventListener('message',event=>{
     const m=event.data;
-    if(event.source!==$('#course').contentWindow || event.origin!==new URL($('#course').src).origin || !m || m.nonce!==courseNonce)return;
+    if(event.source!==courseWindow() || event.origin!==courseOrigin() || !m || m.nonce!==courseNonce)return;
+    if(m.type==='workbook:assistant-provider' && BRIDGE_PROVIDERS[m.provider]){
+      if(!busy && !checking){$('#provider').value=m.provider;$('#provider').dispatchEvent(new Event('change'));}return;
+    }
+    if(m.type==='workbook:assistant-draft' && typeof m.text==='string' && m.text.length<=12000){
+      if(!$('#question').value.trim()){$('#question').value=m.text;remember();state();}return;
+    }
     if(m.type==='workbook:course-context'){
       const lesson=m.lesson;
       if(lesson!==null && (!lesson || typeof lesson.id!=='string' || typeof lesson.title!=='string' || typeof lesson.task!=='string' || !Array.isArray(lesson.checks) || lesson.checks.some(x=>typeof x!=='string') || JSON.stringify(lesson).length>15000))return;
@@ -75,7 +93,7 @@
   function seedLearning(mode){
     const title=courseContext?.lesson?.title;
     const prompts={plan:'请把任务拆成三个可验证的小步骤，只指导第一步，并说明为什么。',hint:'请先给我一个思考线索和一个检查动作，等我尝试后再继续。',debug:'请引导我补齐预期结果、实际结果、完整报错和尝试，再提出一个可验证的原因。',review:'请按验收标准检查我的思路，先问我实际运行的结果。'};
-    $('#question').value=(title?`我正在学习“${title}”。\n`:'')+prompts[mode];
+    $('#learning-tools').open=true;$('#question').value=(title?`我正在学习“${title}”。\n`:'')+prompts[mode];
     $('#workspace').classList.remove('closed');$('#toggle').textContent='收起助教';$('#toggle').setAttribute('aria-expanded','true');$('#question').focus();remember();state();
   }
   document.querySelectorAll('[data-learning]').forEach(button=>button.addEventListener('click',()=>seedLearning(button.dataset.learning)));
@@ -89,6 +107,7 @@
     $('#connection-feedback').setAttribute('aria-live',kind==='error'?'assertive':'polite');
     $('#status-title').textContent=({info:'当前状态',pending:'正在连接',error:busy?'回复同步中断':'连接未完成',ready:'可以发送问题'})[kind];
     $('#recovery').hidden=kind!=='error';
+    sendHost({type:'workbook:assistant-state',provider:activeProvider,ready,busy,checking,kind});
   }
   function state() {
     $('#send').disabled=busy||checking||(!ready && !$('#question').value.trim());
@@ -100,7 +119,7 @@
   function append(role,text) {
     $('.empty')?.remove();
     const record={role,text,provider:activeProvider,tabId:binding?.tabId,time:new Date().toISOString()};records.push(record);
-    return renderRecord(record);
+    const item=renderRecord(record);$('#messages').scrollTop=$('#messages').scrollHeight;return item;
   }
   Object.entries(BRIDGE_PROVIDERS).forEach(([id,p])=>$('#provider').add(new Option(p.name,id)));
   $('#provider').addEventListener('change',()=>{
@@ -217,7 +236,7 @@
     }else if(m.type==='reconnect-failed' && m.provider===activeProvider){
       checked();ready=false;busy=false;state();status(m.message,'error');
     }else if(m.type==='started'){
-      request=m.id;append('user',m.text);answer=append('assistant','');$('#question').value='';
+      $('#learning-tools').open=false;request=m.id;append('user',m.text);answer=append('assistant','');$('#question').value='';
     }else if(m.type==='update' && m.id===request){
       if(answer){const scroll=$('#messages');const atEnd=scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<60;answer.pre.textContent=m.text;answer.record.text=m.text;answer.record.status=m.status;if(atEnd)scroll.scrollTop=scroll.scrollHeight;}
       status(m.status,m.error?'error':'info');if(m.terminal){busy=false;state();}
@@ -232,6 +251,8 @@
     if(['bound','started','update','ended','error','invalidated','reconnected','reconnect-failed'].includes(m.type))remember();
   });
   $('#provider').value=activeProvider;restore(activeProvider);
+  sendHost({type:'workbook:assistant-ready',version:chrome.runtime.getManifest?.().version || 'test'});
+  document.addEventListener('keydown',event=>{if(embed && event.key==='Escape')sendHost({type:'workbook:assistant-close'});});
   requestCourse();
   if(saveBlocked)$('#save-state').textContent='本机历史异常，原记录已保留；当前对话请导出保存。';
 })();

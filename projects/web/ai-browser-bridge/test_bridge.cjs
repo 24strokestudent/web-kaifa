@@ -8,7 +8,7 @@ const vm=require('node:vm');
 const root=path.resolve(__dirname,'../../..');
 const qa=path.join(root,'.qa/bridge');fs.mkdirSync(qa,{recursive:true});
 const extension=fs.mkdtempSync(path.join(qa,'extension-'));
-for(const f of ['manifest.json','providers.js','background.js','bridge.js','panel.html','panel.js','panel.css'])fs.copyFileSync(path.join(__dirname,f),path.join(extension,f));
+for(const f of ['manifest.json','providers.js','background.js','bridge.js','panel.html','panel.js','panel.css','theme.css','workbook-sites.js','site-bridge.js','panel-mode.js'])fs.copyFileSync(path.join(__dirname,f),path.join(extension,f));
 const manifest=JSON.parse(fs.readFileSync(path.join(extension,'manifest.json')));
 // Only the test copy pregrants hosts, to avoid automating the browser's permission prompt.
 manifest.host_permissions=manifest.optional_host_permissions;
@@ -87,7 +87,7 @@ document.querySelector('#send').onclick=()=>{
         };
       },key);
       await panel.locator('.connection').evaluate(el=>el.open=true);
-      await panel.selectOption('#provider',key);
+      await panel.selectOption('#provider',key);await panel.locator('.connection').evaluate(el=>el.open=true);
       await panel.click('#refresh');
       await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
       await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));
@@ -115,7 +115,7 @@ document.querySelector('#send').onclick=()=>{
         await panel.locator('#question').press('Enter');await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('本轮同步结束'));
         assert.equal(await official.evaluate(()=>window.sends),2);
         const text=await panel.locator('#messages').textContent();
-        await panel.selectOption('#provider','claude');await panel.selectOption('#provider',key);await panel.locator('#send:enabled').waitFor({timeout:8000});
+        await panel.selectOption('#provider','claude');await panel.selectOption('#provider',key);await panel.locator('.connection').evaluate(el=>el.open=true);await panel.locator('#send:enabled').waitFor({timeout:8000});
         assert.equal(await panel.locator('#messages').textContent(),text,'switch retains both rounds');
         await panel.fill('#question','切回来第三轮');await panel.locator('#question').press('Enter');await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('本轮同步结束'));
         assert.equal(await official.evaluate(()=>window.sends),3,'no prompt sent merely for binding');
@@ -125,7 +125,7 @@ document.querySelector('#send').onclick=()=>{
     }
     if(!process.env.BRIDGE_MODERN_ONLY){
       const discover=await context.newPage();await discover.goto('https://www.doubao.com/chat/bot/discover');
-      await panel.locator('.connection').evaluate(el=>el.open=true);await panel.selectOption('#provider','doubao');
+      await panel.locator('.connection').evaluate(el=>el.open=true);await panel.selectOption('#provider','doubao');await panel.locator('.connection').evaluate(el=>el.open=true);
       await panel.click('#refresh');await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
       await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));await panel.click('#bind');
       await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('不是对话页'));
@@ -157,7 +157,7 @@ document.querySelector('#send').onclick=()=>{
       };
     });
     await panel.locator('.connection').evaluate(el=>el.open=true);
-    await panel.selectOption('#provider','gpt');await panel.click('#refresh');
+    await panel.selectOption('#provider','gpt');await panel.locator('.connection').evaluate(el=>el.open=true);await panel.click('#refresh');
     await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
     await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));
     for(const key of ['input','send','answer','stop'])await panel.fill('#selector-'+key,'');

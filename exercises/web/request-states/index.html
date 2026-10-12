@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>请求状态 · 练习起点</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main>
+    <p class="caption">Web · Fetch 与 JSON · 参考起点</p>
+    <h1>让失败也有清楚的反馈</h1>
+    <p>通过真实本地请求观察成功、空结果、404 与解析失败。先启动 HTTP 服务，再点击加载。</p>
+    <form id="request-form">
+      <label for="scenario">请求场景</label>
+      <select id="scenario">
+        <option value="success">正常数组 · items.json</option>
+        <option value="empty">空数组 · empty.json</option>
+        <option value="missing">不存在 · missing.json</option>
+        <option value="invalid">坏 JSON · invalid.json</option>
+      </select>
+      <button id="load" type="submit">加载所选数据</button>
+    </form>
+    <section id="view" data-state="idle" aria-label="请求结果">
+      <h2 id="status" role="status" aria-live="polite">尚未发起请求</h2>
+      <ul id="items"></ul>
+    </section>
+    <p class="caption">配套文件只提供读取演示。字段校验、重试与取消是下一步任务，见 README。</p>
+  </main>
+</body>
+</html>

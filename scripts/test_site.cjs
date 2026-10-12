@@ -84,7 +84,7 @@ fs.mkdirSync(qa, { recursive: true });
   assert.equal(await page.locator('.template-item').count(), 4);
   await navigate('/resources', '要查的时候，有地方查');
   await page.locator('[data-filter="resource"][data-value="web"]').click();
-  assert.equal(await page.locator('.resource').count(), 7);
+  assert.equal(await page.locator('.resource').count(), 10);
   await navigate('/progress', '留下自己做过的事');
   const downloadEvent = page.waitForEvent('download');
   await page.locator('[data-action="export-json"]').click();

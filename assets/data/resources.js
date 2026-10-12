@@ -1,4 +1,4 @@
-// 官方入口核验日期：2026-10-12。核验范围与版本说明见 docs/research-notes.md。
+// 资料入口核验日期：2026-10-12。核验范围与版本说明见 docs/research-notes.md。
 window.LEARNING_RESOURCES = [
   {
     id: "web-first-site",
@@ -160,6 +160,51 @@ window.LEARNING_RESOURCES = [
     url: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html",
     description: "进阶。做用户数据时，核对每次请求的权限。用两个账号测试：一个人不能读取、修改或删除另一个人的记录。",
     stage: "安全",
+    language: "英文"
+  },
+  {
+    id: "web-curriculum",
+    track: "web",
+    title: "MDN：前端知识体系",
+    url: "https://developer.mozilla.org/en-US/curriculum/",
+    description: "路线参考。对照环境、语义 HTML、CSS、JavaScript、无障碍和 Git 等核心基础，再选择测试、性能与框架扩展；不要把每个扩展都当成起步前提。",
+    stage: "路线",
+    language: "英文"
+  },
+  {
+    id: "web-js-practice",
+    track: "web",
+    title: "MDN：按主题检查 JavaScript",
+    url: "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Test_your_skills",
+    description: "专项练习。按数组、函数、条件、事件等薄弱点挑一个任务。先预测、自己实现，再用结果核对，而不只是阅读例子。",
+    stage: "练习",
+    language: "英文"
+  },
+  {
+    id: "web-odin",
+    track: "web",
+    title: "The Odin Project：基础与阶段项目",
+    url: "https://www.theodinproject.com/paths/foundations/courses/foundations",
+    description: "社区课程参考。从工具与 Git 到 HTML、CSS、JavaScript，把概念接到阶段作品。可参考任务安排，再做自己的内容和验收，不需要复刻别人页面。",
+    stage: "项目",
+    language: "英文"
+  },
+  {
+    id: "go-examples",
+    track: "go",
+    title: "Go by Example：可运行短例子",
+    url: "https://gobyexample.com/",
+    description: "作者维护的例子集。从切片、map、方法到测试、HTTP 和 context，按当前问题查一个主题；运行后改变输入，解释实际行为。",
+    stage: "专项",
+    language: "英文"
+  },
+  {
+    id: "go-exercism",
+    track: "go",
+    title: "Exercism：Go 专项练习",
+    url: "https://exercism.org/tracks/go",
+    description: "社区练习参考。完成站内起步后继续练习语法和问题求解；先尝试，再参考反馈。账号、CLI 和站外使用条件请看其当前说明。",
+    stage: "练习",
     language: "英文"
   }
 ];

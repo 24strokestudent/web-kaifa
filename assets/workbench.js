@@ -4,7 +4,7 @@
   const $ = selector => document.querySelector(selector);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   let api;
-  let courseParent=null;
+  let courseParent=null,embeddedAssistant=null;
   let currentLesson = null;
   let currentKey = 'custom';
   let manualOpen = null;
@@ -130,23 +130,66 @@
   }
 
   function publishCourse(){
-    if(!courseParent)return;
-    const l=currentLesson;
+    if(!courseParent && !embeddedAssistant?.ready)return;
+    const l=learningContext();
     const lesson=l?{id:l.id,title:l.title,task:l.task,checks:l.checks}:null;
-    const code=l?($('#lesson-code')?.value ?? api.draft(l.id) ?? l.starterCode ?? ''):'';
-    parent.postMessage({type:'workbook:course-context',nonce:courseParent.nonce,lesson,code},courseParent.origin);
+    const code=l?(l===currentLesson?($('#lesson-code')?.value ?? api.draft(l.id) ?? l.starterCode ?? ''):(l.starterCode || '')):'';
+    const payload={type:'workbook:course-context',lesson,code};
+    if(courseParent)parent.postMessage({...payload,nonce:courseParent.nonce},courseParent.origin);
+    if(embeddedAssistant?.ready)sendAssistant(payload);
   }
   window.addEventListener('message',event=>{
     const m=event.data;
     if(!new URLSearchParams(location.search).has('bridge') || event.source!==parent || !/^chrome-extension:\/\/[a-p]{32}$/.test(event.origin) || m?.type!=='workbook:course-request' || typeof m.nonce!=='string' || m.nonce.length>80)return;
     courseParent={origin:event.origin,nonce:m.nonce};publishCourse();setOpen(false);
   });
+  function learningContext(){
+    if(currentLesson)return currentLesson;
+    const [kind,id]=location.hash.replace(/^#\/?/,'').split('?')[0].split('/');
+    const data=window.LEARNING_LAB;
+    if(kind==='topic'){
+      const item=data?.topics.find(item=>item.id===id);
+      if(item)return {id:'topic/'+id,title:item.title,task:[item.summary,item.why,...item.points.map(([a,b])=>a+'：'+b)].join('\n'),checks:[item.recall[0]],starterCode:item.example};
+    }
+    if(kind==='exercise'){
+      const item=data?.exercises.find(item=>item.id===id);
+      if(item)return {id:'exercise/'+id,title:item.title,task:item.task,checks:item.checks,starterCode:item.starter};
+    }
+    return null;
+  }
+  function sendAssistant(message){
+    if(embeddedAssistant?.ready)embeddedAssistant.frame.contentWindow.postMessage({...message,nonce:embeddedAssistant.nonce},embeddedAssistant.origin);
+  }
+  function connectAssistant(url,version){
+    if(!api || courseParent || embeddedAssistant)return;
+    const nonce=crypto.randomUUID(),target=new URL(url);
+    target.searchParams.set('embedded','1');target.searchParams.set('host',location.origin);target.searchParams.set('channel',nonce);
+    const frame=document.createElement('iframe');frame.id='assistant-bridge-frame';frame.title='AI 助教 · 官网账号对话';frame.src=target.href;
+    $('#assistant-panel').append(frame);embeddedAssistant={frame,origin:'chrome-extension://'+target.hostname,nonce,ready:false,version};
+    document.body.classList.add('assistant-connecting');
+    const timeout=setTimeout(()=>{
+      if(embeddedAssistant?.ready)return;
+      frame.remove();embeddedAssistant=null;document.body.classList.remove('assistant-connecting');
+      $('#assistant-status').textContent='扩展界面没有回应。问题仍保留，请检查扩展是否已更新。';
+    },8000);
+    window.addEventListener('message',event=>{
+      const m=event.data;
+      if(!embeddedAssistant || event.source!==frame.contentWindow || event.origin!==embeddedAssistant.origin || m?.nonce!==nonce)return;
+      if(m.type==='workbook:course-request' || m.type==='workbook:assistant-ready'){
+        clearTimeout(timeout);embeddedAssistant.ready=true;
+        document.body.classList.remove('assistant-connecting');document.body.classList.add('assistant-connected');
+        publishCourse();
+        if(draft.question)sendAssistant({type:'workbook:assistant-draft',text:draft.question});
+      }
+      if(m.type==='workbook:assistant-close')closeAssistant();
+    });
+  }
   function contextText() {
-    const lesson = currentLesson;
+    const lesson = learningContext();
     const parts = [];
-    if (draft.task && lesson) parts.push(`课程：${lesson.track === 'web' ? 'Web' : 'Go'} 第 ${lesson.day} 课 · ${lesson.title}`, `任务：${lesson.task}`, `验收：${lesson.checks.join('；')}`);
+    if (draft.task && lesson) parts.push(`课程：${lesson.day?(lesson.track === 'web' ? 'Web' : 'Go')+' 第 '+lesson.day+' 课 · ':''}${lesson.title}`, `任务：${lesson.task}`, `验收：${lesson.checks.join('；')}`);
     if (draft.code && lesson) {
-      const code = $('#lesson-code')?.value ?? api.draft(lesson.id) ?? lesson.starterCode ?? '';
+      const code = lesson===currentLesson?($('#lesson-code')?.value ?? api.draft(lesson.id) ?? lesson.starterCode ?? ''):lesson.starterCode || '';
       parts.push('我的代码：', code || '本课尚无代码草稿。');
     }
     return parts.join('\n');
@@ -171,8 +214,8 @@
     $('#assistant-question').value = draft.question;
     $('#assistant-task').checked = draft.task;
     $('#assistant-code').checked = draft.code;
-    $('#assistant-task').disabled = $('#assistant-code').disabled = !currentLesson;
-    $('#assistant-context-label').textContent = currentLesson ? currentLesson.title : '自由提问 · 未附带课程';
+    $('#assistant-task').disabled = $('#assistant-code').disabled = !learningContext();
+    $('#assistant-context-label').textContent = learningContext() ? learningContext().title : '自由提问 · 未附带课程';
     $('#assistant-output').textContent = draft.output;
     $('#assistant-result').hidden = !draft.output;
     $('#assistant-status').textContent = '';
@@ -196,7 +239,7 @@
     if(courseParent){publishCourse();parent.postMessage({type:'workbook:course-open',nonce:courseParent.nonce},courseParent.origin);return;}
     returnFocus = document.activeElement;
     setOpen(true, true);
-    $('#assistant-question').focus();
+    if(embeddedAssistant?.ready)embeddedAssistant.frame.focus();else $('#assistant-question').focus();
   }
   function closeAssistant() {
     setOpen(false, true);
@@ -206,6 +249,7 @@
   function seed(mode, code = false) {
     if(courseParent){publishCourse();parent.postMessage({type:'workbook:course-preset',nonce:courseParent.nonce,mode,includeCode:code},courseParent.origin);return;}
     openAssistant();
+    if(embeddedAssistant?.ready){publishCourse();sendAssistant({type:'workbook:course-preset',mode,includeCode:code});return;}
     if (code && currentLesson) draft.code = true;
     draft.question = (currentLesson ? `我正在学习“${currentLesson.title}”。\n` : '') + modes[mode];
     syncDraft();
@@ -215,12 +259,12 @@
   function routeChanged(route, lesson) {
     drafts.set(currentKey, { ...draft });
     currentLesson = lesson;
-    currentKey = lesson?.id || 'custom';
+    currentKey = learningContext()?.id || 'custom';
     draft = { ...(drafts.get(currentKey) || emptyDraft()) };
     document.body.classList.toggle('lesson-view', Boolean(lesson));
     updateOutline(lesson);
     syncDraft();
-    setOpen(manualOpen ?? (Boolean(lesson) && !modalLayout() && !new URLSearchParams(location.search).has('bridge')));
+    setOpen(manualOpen ?? (Boolean(learningContext()) && !modalLayout() && !new URLSearchParams(location.search).has('bridge')));
   }
 
   function configure(bridge) {
@@ -228,16 +272,18 @@
     $('#assistant-root').innerHTML = `
       <button id="assistant-backdrop" class="assistant-backdrop" tabindex="-1" aria-label="关闭 AI 助教" hidden></button>
       <aside class="assistant-panel" id="assistant-panel" aria-labelledby="assistant-title" hidden>
-        <header class="assistant-heading"><div class="assistant-row"><h2 id="assistant-title"><span class="assistant-symbol" aria-hidden="true">✳</span>AI 助教</h2><button class="assistant-close" id="assistant-close" aria-label="收起 AI 助教">×</button></div><button class="button provider-button" id="assistant-provider" aria-haspopup="dialog"><span><b id="assistant-provider-name">Claude</b> · 未接入</span><span>选择服务 ⌄</span></button></header>
-        <div class="assistant-body"><p class="assistant-mode-note">本地提问工具 · 不调用模型、不发送代码</p><span class="workbook-eyebrow">A LITTLE HELP, AT THE RIGHT TIME</span><h3 class="assistant-greeting">从你卡住的地方开始。</h3><p class="assistant-description">说说你想做什么、试过什么。先整理一个清楚的问题，再带着提示回到自己的代码里。</p><div class="assistant-suggestions"><button data-assist-preset="plan">帮我把任务拆小</button><button data-assist-preset="hint">先给我一个线索</button><button data-assist-preset="debug">教我怎样排查报错</button></div><section class="assistant-context"><h3 id="assistant-context-label"></h3><label><input id="assistant-task" type="checkbox" checked>当前课程与验收标准</label><label><input id="assistant-code" type="checkbox">我编辑的代码</label><details><summary>查看本次提问的上下文</summary><pre id="assistant-context-preview"></pre></details></section><section class="assistant-result" id="assistant-result" hidden><div class="assistant-row"><h3>整理后的提问 · 非 AI 回答</h3><button class="button quiet small" id="assistant-copy">复制</button></div><pre id="assistant-output" tabindex="0"></pre></section></div>
+        <header class="assistant-heading"><div class="assistant-row"><h2 id="assistant-title"><span class="assistant-symbol" aria-hidden="true">✳</span>AI 助教</h2><button class="assistant-close" id="assistant-close" aria-label="收起 AI 助教">×</button></div><button class="button provider-button" id="assistant-provider" aria-haspopup="dialog"><span><b id="assistant-provider-name">Claude</b> · 本地提问</span><span>选择服务 ⌄</span></button></header>
+        <div class="assistant-body"><p class="assistant-mode-note">扩展未连接 · 当前可整理并复制提问 <button type="button" class="button quiet small" id="assistant-install">连接帮助</button></p><span class="workbook-eyebrow">A LITTLE HELP, AT THE RIGHT TIME</span><h3 class="assistant-greeting">从你卡住的地方开始。</h3><p class="assistant-description">说说你想做什么、试过什么。先整理一个清楚的问题，再带着提示回到自己的代码里。</p><div class="assistant-suggestions"><button data-assist-preset="plan">帮我把任务拆小</button><button data-assist-preset="hint">先给我一个线索</button><button data-assist-preset="debug">教我怎样排查报错</button></div><section class="assistant-context"><h3 id="assistant-context-label"></h3><label><input id="assistant-task" type="checkbox" checked>当前课程与验收标准</label><label><input id="assistant-code" type="checkbox">我编辑的代码</label><details><summary>查看本次提问的上下文</summary><pre id="assistant-context-preview"></pre></details></section><section class="assistant-result" id="assistant-result" hidden><div class="assistant-row"><h3>整理后的提问 · 非 AI 回答</h3><button class="button quiet small" id="assistant-copy">复制</button></div><pre id="assistant-output" tabindex="0"></pre></section></div>
         <div class="assistant-compose-area"><form class="assistant-compose" id="assistant-form"><label for="assistant-question">你的问题</label><textarea id="assistant-question" maxlength="4000" aria-describedby="assistant-status" placeholder="例如：我该先写页面结构，还是先调整样式？"></textarea><div class="assistant-row"><small>先要线索，再自己动手</small><button class="button primary" type="submit">整理提问 ↑</button></div></form><p id="assistant-status" class="assistant-status" role="status"></p><p class="assistant-footnote">提问草稿仅保留在当前页面，请及时复制</p></div>
       </aside>
-      <dialog class="workbook-dialog" id="provider-dialog" aria-labelledby="provider-title"><div class="assistant-row"><h2 id="provider-title">选择你使用的 AI</h2><button class="assistant-close" data-close-dialog="provider-dialog" aria-label="关闭服务选择">×</button></div><p>选择你准备复制提问到的工具；本站目前没有在线模型连接。</p><div class="provider-options">${['Claude', 'ChatGPT', 'Gemini', 'DeepSeek'].map(name => `<button class="button" data-provider="${name}" aria-pressed="${name === provider}"><strong>${name}</strong><small>未接入</small></button>`).join('')}</div><p>选择服务不会登录第三方账号，也不会把课程或代码发出去。</p><button class="button" id="connection-info">了解站内登录与对话</button></dialog>
-      <dialog class="workbook-dialog" id="connection-dialog" aria-labelledby="connection-title"><div class="assistant-row"><h2 id="connection-title">关于站内对话</h2><button class="assistant-close" data-close-dialog="connection-dialog" aria-label="关闭连接说明">×</button></div><p>当前版本可以直接学习和整理提问，不需要登录。</p><p>官网对话桥接扩展原型已单独提供：安装扩展 → 在官网登录 → 绑定官网标签页 → 在扩展工作台中同步对话。七家候选适配器仍需真实账号验证。</p><p>本页仍是本地提问工具，安装扩展也不会自动把它变成在线聊天。扩展不使用付费模型 API，也不会收集官网密码。</p><button class="button primary" data-close-dialog="connection-dialog">知道了</button></dialog>`;
+      <dialog class="workbook-dialog" id="provider-dialog" aria-labelledby="provider-title"><div class="assistant-row"><h2 id="provider-title">选择你使用的 AI</h2><button class="assistant-close" data-close-dialog="provider-dialog" aria-label="关闭服务选择">×</button></div><p>选择你准备复制提问到的工具；本站目前没有在线模型连接。</p><div class="provider-options">${['Claude', 'ChatGPT', 'Gemini', 'DeepSeek', 'Kimi', '豆包', '智谱清言'].map(name => `<button class="button" data-provider="${name}" aria-pressed="${name === provider}"><strong>${name}</strong><small>本地提问</small></button>`).join('')}</div><p>选择服务不会登录第三方账号，也不会把课程或代码发出去。</p><button class="button" id="connection-info">了解站内登录与对话</button></dialog>
+      <dialog class="workbook-dialog" id="connection-dialog" aria-labelledby="connection-title"><div class="assistant-row"><h2 id="connection-title">关于站内对话</h2><button class="assistant-close" data-close-dialog="connection-dialog" aria-label="关闭连接说明">×</button></div><p>当前版本可以直接学习和整理提问，不需要登录。</p><p>安装新版官网对话桥接扩展后，本页右侧会自动显示聊天窗口。直接输入问题，扩展准备新对话；需要登录时在 AI 官网完成。对应官网标签页可留在后台。</p><p>扩展未连接时可以整理、复制提问。聊天使用官网当前账号和模型，不调用付费模型 API。七家适配状态见扩展说明。</p><a class="button" href="projects/web/ai-browser-bridge/README.md" target="_blank" rel="noopener">安装扩展与使用说明 ↗</a><button class="button primary" data-close-dialog="connection-dialog">知道了</button></dialog>`;
     $('#assistant-toggle').addEventListener('click', () => document.body.classList.contains('assistant-open') ? closeAssistant() : openAssistant());
     $('#assistant-close').addEventListener('click', closeAssistant);
     $('#assistant-backdrop').addEventListener('click', closeAssistant);
+    if(new URLSearchParams(location.search).get('assistant')==='1')setOpen(true,true);
     $('#assistant-provider').addEventListener('click', () => $('#provider-dialog').showModal());
+    $('#assistant-install').addEventListener('click',()=>$('#connection-dialog').showModal());
     $('#connection-info').addEventListener('click', () => { $('#provider-dialog').close(); $('#connection-dialog').showModal(); });
     $('#connection-dialog').addEventListener('close', () => $('#assistant-provider').focus());
     document.querySelectorAll('[data-provider]').forEach(button => button.addEventListener('click', () => {
@@ -246,6 +292,14 @@
       document.querySelectorAll('[data-provider]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
     }));
     document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => $('#' + button.dataset.closeDialog).close()));
+    let composing=false;
+    $('#assistant-question').addEventListener('compositionstart',()=>{composing=true;});
+    $('#assistant-question').addEventListener('compositionend',()=>{composing=false;});
+    $('#assistant-question').addEventListener('keydown',event=>{
+      if(event.key!=='Enter' || composing || event.isComposing || event.keyCode===229)return;
+      if(event.ctrlKey || event.shiftKey || event.metaKey)return;
+      event.preventDefault();if(!event.repeat && !event.altKey && draft.question.trim())$('#assistant-form').requestSubmit();
+    });
     $('#assistant-question').addEventListener('input', event => {
       draft.question = event.target.value;
       event.target.removeAttribute('aria-invalid');
@@ -279,5 +333,5 @@
       setOpen(document.body.classList.contains('assistant-open'));
     });
   }
-  window.Workbench = { configure, mountLesson, routeChanged, methodPage, refreshProgress };
+  window.Workbench = { connectAssistant, openAssistant, configure, mountLesson, routeChanged, methodPage, refreshProgress };
 })();

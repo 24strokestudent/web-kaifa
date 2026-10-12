@@ -5,18 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="从第一张网页到 Go 后端，用课时、真实代码预览和 AI 提问模板一步步学习。免费阅读，进度保存在自己的浏览器。">
   <meta name="theme-color" content="#faf9f5">
-  <meta http-equiv="Content-Security-Policy" content="frame-src 'self'; object-src 'none'; base-uri 'none'">
+  <meta http-equiv="Content-Security-Policy" content="frame-src 'self' chrome-extension:; object-src 'none'; base-uri 'none'">
   <title>开发练习册 · Web 与 Go</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" href="assets/workbench.css">
+  <link rel="stylesheet" href="assets/learning.css">
   <script defer src="assets/vendor/marked.umd.js"></script>
   <script defer src="assets/data/curriculum.js"></script>
   <script defer src="assets/data/adaptations.js"></script>
   <script defer src="assets/data/resources.js"></script>
   <script defer src="assets/data/ai-guide.js"></script>
+  <script defer src="assets/data/learning-lab.js"></script>
+  <script defer src="assets/learning.js"></script>
   <script defer src="assets/workbench.js"></script>
+  <script defer src="assets/assistant-connection.js"></script>
   <script defer src="assets/app.js"></script>
 </head>
 <body>
@@ -37,8 +41,10 @@
         <p class="nav-label">学习路线</p>
         <a href="#/web" data-nav="web"><span aria-hidden="true">&lt;/&gt;</span>Web 开发</a>
         <a href="#/go" data-nav="go"><span aria-hidden="true">{ }</span>Go 后端</a>
+        <a href="#/knowledge" data-nav="knowledge"><span aria-hidden="true">◇</span>知识地图</a>
+        <a href="#/practice" data-nav="practice"><span aria-hidden="true">✎</span>练习工坊</a>
         <p class="nav-label">随手查一查</p>
-        <a href="#/resources" data-nav="resources"><span aria-hidden="true">↗</span>官方资料</a>
+        <a href="#/resources" data-nav="resources"><span aria-hidden="true">↗</span>资料与参考</a>
         <a href="#/progress" data-nav="progress"><span aria-hidden="true">✓</span>我的进度</a>
       </nav>
       <nav id="course-outline" aria-label="当前路线课程" hidden></nav>
@@ -51,7 +57,7 @@
     <header class="topbar">
       <div id="breadcrumb" class="breadcrumb">开始学习</div>
       <form class="search-form" id="search-form" role="search">
-        <label for="global-search">查找课程</label>
+        <label for="global-search">查找学习内容</label>
         <input id="global-search" type="search" placeholder="HTML、HTTP、数据库…" autocomplete="off">
         <button type="submit" class="icon-button" aria-label="搜索">⌕</button>
       </form>
@@ -62,7 +68,7 @@
     <footer class="site-footer">
       <div><strong>开发练习册</strong><p>留下一版自己的代码，问题就有了起点。</p></div>
       <div><span>继续动手</span><a href="#/web">Web 路线</a><a href="#/go">Go 路线</a><a href="#/ai">AI 提问台</a></div>
-      <div><span>查资料与保存</span><a href="#/resources">官方资料</a><a href="#/progress">导出学习记录</a><a href="materials/README.md">原始教材索引</a></div>
+      <div><span>查资料与保存</span><a href="#/resources">资料与参考</a><a href="#/progress">导出学习记录</a><a href="materials/README.md">原始教材索引</a></div>
     </footer>
   </div>
   <div id="assistant-root"></div>

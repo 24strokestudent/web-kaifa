@@ -24,17 +24,29 @@ Kimi 正文排除思考区，识别生成中的 loading 控件；Gemini 排除 Q
 
 实测发现并修正多行富文本额外空行，以及第二轮正文重复上一轮时不显示的问题。隔离 MV3 小窗口已验证 Kimi/Gemini 默认适配器首次新建、连续两轮、切换回来第三轮，未手动绑定、未发送额外提示词。真实已安装扩展的端到端验收仍未完成。
 
+## 0.2.0 统一入口
+
+日常入口为根目录学习网站。新版扩展在已支持的学习网站上公告自身地址，网站在右侧嵌入同一份扩展聊天 UI；窗口仍使用扩展自己的本机聊天存档，网站不接收或存储官网账号凭据和聊天回复。扩展图标优先回到已打开的学习页，没有时打开线上正式网站。此前 panel.html 工作台仍可用来排障，设计参考不是另一套日常课程入口。
+
+支持线上 `https://zhouwu97.github.io/web-kaifa/` 以及本机 `http://localhost:<端口>/`、`http://127.0.0.1:<端口>/` 根目录页面。网站入口使用相同端口时学习记录可直接保留；不同地址或端口的学习存档由浏览器隔离，请在原页面导出后用网站既有导入流程迁移，不自动覆盖。
+
+扩展未启用或旧版本尚无网站连接能力时，网站明确显示“扩展未连接”，保留本地整理和安装帮助。安装本版本只需让浏览器加载一次新版扩展并重新打开学习页，不需再次手动绑定原 AI 对话。已存在的官方标签页可后台运行。
+
+课程、知识主题和练习详情共用上下文，换页刷新内容并取消代码带入。发送后折叠学习辅助以扩大阅读空间，选择问法时重新展开。消息气泡只显示问题正文，课程与代码折叠在“查看本次发送的学习内容”；完整原文保留在聊天记录与导出中。同一份 tokens.css 通过 `node scripts/sync_bridge_theme.cjs` 同步到扩展 `theme.css`，`--check` 检查一致性。
+
+消息只在指定来源、指定窗口与随机编号一致时交换；网站消息不能直接触发模型发送。模型发送仍由扩展自己的表单和权限流程执行。代码预览 iframe 不参与此通道。此嵌入方式依据 Chrome 官方 [Web accessible resources](https://developer.chrome.com/docs/extensions/reference/manifest/web-accessible-resources) 与 [Content scripts](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts) 文档实现。
+
 ## 安装与启动
 
 1. 在自己平时登录 AI 官网的 **同一个 Chrome / Edge 浏览器配置文件** 中打开 `chrome://extensions` 或 `edge://extensions`。
 2. 开启“开发者模式”，点击“加载已解压的扩展程序”，选择本 README 所在的 `ai-browser-bridge` 文件夹（里面应直接包含 manifest.json）。不需要安装 Node，不需要 API Key。
-3. 在工具栏扩展菜单中点“开发练习册 · 官网对话桥接原型”。这会打开独立工作台标签页：左侧是课程网页，右侧是我们自己的聊天界面。收起右侧会恢复课程宽度；窄屏上下排列。
+3. 打开正式学习网站或本机根目录网站，右侧自动显示扩展聊天。也可点扩展图标回到学习页。桌面助教缩窄正文，窄屏上下排列。
 4. 选择服务，输入问题，按 Enter 或点击“发送”。首次会请求所选站点权限，并自动打开一段新对话。
 5. 若需要登录，在新打开的 AI 页面自行完成登录或验证，随后回工作台；页面更新和后台定期检查会继续连接。对应官网页保持打开即可，可放后台。也可展开连接设置，手动选择已有对话。
 6. 若状态显示输入/发送匹配成功，先发送 `请只回复：桥接测试成功。`。到官网核对收到的消息，再回工作台查看真实回复是否逐段更新。
 7. 测长回答可发送 `请分五段解释 HTML、CSS 和 JavaScript 的分工。`。检查官网文字与工作台是否一致，并测试第二轮追问。这两条验证会使用官网当前账号额度。
 
-初次安装后的官网标签页不必刷新，绑定时才注入桥接脚本。更新扩展需要让浏览器载入新版本并重新打开工作台；不要求刷新 AI 官网，连接时会替换旧监听器。
+初次安装后的官网标签页不必刷新，绑定时才注入桥接脚本。更新扩展需要让浏览器载入新版本并重新打开学习页；不要求刷新 AI 官网，连接时会替换旧监听器。
 
 ## 七家适配状态
 
@@ -83,6 +95,8 @@ node projects/web/ai-browser-bridge/test_feedback.cjs
 node projects/web/ai-browser-bridge/test_auto_session.cjs
 node projects/web/ai-browser-bridge/test_auto_browser.cjs
 node projects/web/ai-browser-bridge/test_course_context.cjs
+node projects/web/ai-browser-bridge/test_unified_site.cjs
+node scripts/sync_bridge_theme.cjs --check
 node scripts/check_site.cjs
 # 启动仓库静态服务器后运行
 node scripts/test_site.cjs

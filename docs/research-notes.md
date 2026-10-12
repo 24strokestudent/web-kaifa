@@ -2,7 +2,7 @@
 
 核验日期：2026-10-12。范围：给学习网页挑选常用的一手资料入口，抽查教材中的版本、数据库示例和上线说明。原教材保持不变；这份记录不表示学习任务已经完成，也不等同于跑过教材中的每段代码。
 
-网页的资料列表来自 [resources.js](../assets/data/resources.js)。Web 选 7 个入口，Go 选 8 个，另有 3 个通用入口。难度、阶段和建议阅读顺序由本仓库整理；用途依据链接中的实际内容。
+网页的资料列表来自 [resources.js](../assets/data/resources.js)。原有 Web 7 个、Go 8 个和通用 3 个官方入口，另补充 MDN Curriculum / JavaScript 技能检查、The Odin Project、Go by Example 与 Exercism 5 个文档或课程参考，总共 23 个。新增参考依据与用途见 [知识与练习优化记录](learning-content-upgrade.md)。难度、阶段和建议阅读顺序由本仓库整理；用途依据链接中的实际内容。
 
 ## Web 入口
 
