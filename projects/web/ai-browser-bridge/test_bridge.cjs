@@ -19,12 +19,12 @@ const fixture=`<!doctype html><meta charset="utf-8"><title>DOM 测试夹具 · �
 <script>
 window.sends=0;
 document.querySelector('#send').onclick=()=>{
- window.sends++;const input=document.querySelector('#ask');window.lastSent=input.value;input.value='';
+ window.sends++;const input=document.querySelector('#ask');window.lastSent=input.value??input.innerText;if('value' in input)input.value='';else input.textContent='';
  const stop=document.querySelector('#stop');stop.hidden=false;
- const answer=document.createElement('div');answer.className='assistant ds-assistant-message-main-content';document.body.append(answer);
+ const answer=document.createElement('div');answer.className='assistant ds-assistant-message-main-content';if(document.body.dataset.doubao){const wrap=document.createElement('div');wrap.dataset.testid='receive_message';answer.dataset.testid='message_text_content';answer.dataset.streaming='true';wrap.append(answer);document.body.append(wrap);}else document.body.append(answer);
  setTimeout(()=>answer.textContent='夹具第一段',200);
  setTimeout(()=>answer.textContent='夹具第一段，第二段 <img src=x onerror=alert(1)>',2200);
- setTimeout(()=>stop.hidden=true,3000);
+ setTimeout(()=>{stop.hidden=true;answer.dataset.streaming='false';},3000);
 };
 </script>`;
 (async()=>{
@@ -54,12 +54,18 @@ document.querySelector('#send').onclick=()=>{
         document.querySelector('.assistant').classList.add('ds-assistant-message-main-content');
         const thinking=document.createElement('div');thinking.className='ds-markdown ds-think-content';thinking.textContent='思考区不能作为最终正文';document.body.append(thinking);
       });
+      if(key==='doubao')await official.evaluate(()=>{
+        document.body.dataset.doubao='1';
+        document.querySelector('#ask').outerHTML='<div id="ask" class="tiptap ProseMirror" contenteditable="true" style="min-height:40px"></div>';
+        document.querySelector('#send').dataset.testid='chat_input_send_button';
+        const old=document.querySelector('.assistant'),wrap=document.createElement('div');wrap.dataset.testid='receive_message';old.dataset.testid='message_text_content';old.replaceWith(wrap);wrap.append(old);
+      });
       await panel.locator('.connection').evaluate(el=>el.open=true);
       await panel.selectOption('#provider',key);
       await panel.click('#refresh');
       await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
       await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));
-      for(const [field,selector] of Object.entries({input:'#ask',send:'#send',answer:'.assistant',stop:'#stop'}))await panel.fill('#selector-'+field,key==='ds'?'':selector);
+      for(const [field,selector] of Object.entries({input:'#ask',send:'#send',answer:'.assistant',stop:'#stop'}))await panel.fill('#selector-'+field,['ds','doubao'].includes(key)?'':selector);
       await panel.click('#bind');await panel.locator('#send:enabled').waitFor({timeout:8000});
       await panel.fill('#question',`${p.name} 桥接验收（夹具）`);await panel.click('#send');
       await panel.waitForFunction(()=>document.querySelector('.message.assistant:last-child pre')?.textContent==='夹具第一段',null,{timeout:8000}).catch(async error=>{
@@ -74,10 +80,18 @@ document.querySelector('#send').onclick=()=>{
       // Existing official drafts are protected, with no second click on send.
       await official.fill('#ask','我的官网草稿');await panel.fill('#question','不能覆盖');await panel.click('#send');
       await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('已有草稿'));
-      assert.equal(await official.inputValue('#ask'),'我的官网草稿');
+      assert.equal(await official.locator('#ask').evaluate(e=>e.value??e.innerText),'我的官网草稿');
       assert.equal(await official.evaluate(()=>window.sends),1);
       await official.close();
-      console.log(`PASS ${p.name}: MV3 route, ${key==='ds'?'default DS adapter':'explicit calibration'}, incremental DOM relay, old history exclusion, draft protection (fixture only)`);
+      console.log(`PASS ${p.name}: MV3 route, ${['ds','doubao'].includes(key)?'default adapter':'explicit calibration'}, incremental DOM relay, old history exclusion, draft protection (fixture only)`);
+    }
+    if(!process.env.BRIDGE_MODERN_ONLY){
+      const discover=await context.newPage();await discover.goto('https://www.doubao.com/chat/bot/discover');
+      await panel.locator('.connection').evaluate(el=>el.open=true);await panel.selectOption('#provider','doubao');
+      await panel.click('#refresh');await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
+      await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));await panel.click('#bind');
+      await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('不是对话页'));
+      assert(await panel.locator('#send').isDisabled());await discover.close();
     }
     for(const width of [375,768,1024,1440]){
       await panel.setViewportSize({width,height:900});
@@ -108,6 +122,7 @@ document.querySelector('#send').onclick=()=>{
     await panel.selectOption('#provider','gpt');await panel.click('#refresh');
     await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
     await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));
+    for(const key of ['input','send','answer','stop'])await panel.fill('#selector-'+key,'');
     await panel.click('#bind');await panel.locator('#send:enabled').waitFor({timeout:8000});
     await panel.fill('#question','富文本编辑验证');await panel.click('#send');
     await panel.waitForFunction(()=>document.querySelector('.message.assistant:last-child pre')?.textContent.includes('富文本夹具'));

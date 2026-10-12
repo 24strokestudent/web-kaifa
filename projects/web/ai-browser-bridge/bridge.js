@@ -69,10 +69,10 @@
         // Fail closed: only a newly appended answer; never mistake old history for a response.
         if(answers.length>before.length && text && !baseline.has(text) && text!==m.text.trim() && text!==running.text) {
           running.text=text; running.changed=Date.now(); running.stableNotified=false;
-          emit(text,'正在同步官网可见文字');
+          emit(text,'正在回复…');
         }
         if(running.text && running.seenStop && !stop && Date.now()-running.changed>1800) {
-          emit(running.text,'官网停止按钮已消失；本轮同步结束，请核对官网。',true); return;
+          emit(running.text,'本轮同步结束。',true); return;
         }
         if(running.text && !stop && Date.now()-running.changed>8000 && !running.stableNotified) {
           running.stableNotified=true; emit(running.text,'文字暂时稳定，未确认生成完成；可继续等待或停止同步。');
@@ -81,10 +81,10 @@
       } catch(error) { emit(running?.text||'',`页面结构变化：${error.message}`,true,true); }
     };
     running.observer=new MutationObserver(tick);
-    running.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-label']});
+    running.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-label','data-streaming']});
     running.timer=setInterval(tick,500);
     button.click();
-    emit('','已点击官网发送按钮，等待可识别的新回复；不代表官网已接收。');
+    emit('','正在等待回复…');
   }
   const listener=(message,_sender,reply) => {
     if(message.type==='workbook:hello') { reply({ok:true,version}); return; }
@@ -96,6 +96,7 @@
       if(running || pending) throw Error('请先停止同步再校准');
       const p=BRIDGE_PROVIDERS[m.provider];
       if(!p || !p.hosts.includes(location.hostname) || location.protocol!=='https:') throw Error('不是所选服务官网');
+      if(m.provider==='doubao' && !/^\/chat\/?$|^\/chat\/\d+\/?$/.test(location.pathname)) throw Error('当前豆包页面不是对话页，没有聊天输入框。请点“打开对话 / 登录”进入对话，再连接该标签页。');
       config={...p};
       for(const key of ['input','send','answer','stop']) {
         const selector=m.overrides?.[key]?.trim();

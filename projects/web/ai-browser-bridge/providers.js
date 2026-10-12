@@ -11,7 +11,7 @@ globalThis.BRIDGE_PROVIDERS = {
   kimi: {name:'Kimi', url:'https://www.kimi.com/', hosts:['www.kimi.com','kimi.com','kimi.moonshot.cn'],
     input:['.chat-input-editor[contenteditable="true"]','[contenteditable="true"][data-lexical-editor="true"]'], send:['button.send-button','.send-button[role="button"]','.send-button-container:has(svg[name="Send"])'], answer:['.segment-assistant .markdown','.assistant-content .markdown'], stop:['button[aria-label="停止生成"]']},
   doubao: {name:'豆包', url:'https://www.doubao.com/chat/', hosts:['www.doubao.com'],
-    input:['textarea[data-testid="chat_input_input"]','textarea[placeholder*="豆包"]','.tiptap.ProseMirror[contenteditable="true"]'], send:['button[data-testid="chat_input_send_button"]'], answer:['[data-testid="receive_message"] [class*="markdown"]','[data-testid="message_text_content"][data-role="assistant"]'], stop:['button[data-testid="chat_input_stop_button"]']},
+    input:['textarea[data-testid="chat_input_input"]','textarea[placeholder*="豆包"]','.tiptap.ProseMirror[contenteditable="true"]'], send:['button[data-testid="chat_input_send_button"]'], answer:['[data-testid="receive_message"] [data-testid="message_text_content"]','[data-testid="receive_message"] [class*="markdown"]','[data-testid="message_text_content"][data-role="assistant"]'], stop:['button[data-testid="chat_input_stop_button"]','[data-testid="receive_message"] [data-streaming="true"]']},
   glm: {name:'智谱清言', url:'https://chatglm.cn/', hosts:['chatglm.cn'],
     input:['textarea[placeholder*="清言"]','.input-box [contenteditable="true"]','.input-box-inner textarea'], send:['button[aria-label="发送"]','.send-btn'], answer:['.answer .markdown-body','.assistant-message .markdown-body'], stop:['button[aria-label="停止生成"]']}
 };

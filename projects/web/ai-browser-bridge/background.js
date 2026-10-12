@@ -79,7 +79,7 @@ chrome.runtime.onConnect.addListener(port => {
       } else if (m.type === 'bind') {
         if(s.request) throw Error('请先停止同步再切换标签页');
         s.bindOperation=m.operation;
-        const tab = await chrome.tabs.get(m.tabId);
+        const tab = await chrome.tabs.get(m.tabId).catch(()=>{throw Error('无法访问之前的 AI 标签页。聊天记录已保留，请打开对话页后重新连接。');});
         if (originProvider(tab.url) !== m.provider) throw Error('官网标签页与所选服务不符');
         if (locks.has(tab.id) && locks.get(tab.id) !== s) throw Error('这个官网标签页正在被另一个工作台使用');
         await release(s);
@@ -100,6 +100,8 @@ chrome.runtime.onConnect.addListener(port => {
         if(!sessions.has(port) || s.bindOperation!==m.operation) return;
         s.tabId=tab.id; s.provider=m.provider; s.bindingToken=result.bindingToken;
         post(port,{type:'bound',operation:m.operation,tabId:tab.id,provider:m.provider,...result});
+      } else if(m.type==='detach'){
+        s.bindOperation=null;await release(s);s.tabId=null;s.provider=null;
       } else if (m.type === 'send') {
         if(s.request) throw Error('已有请求正在同步，未重复发送');
         if(!s.tabId) throw Error('请先绑定官网标签页');
@@ -131,7 +133,7 @@ chrome.runtime.onMessage.addListener((m,sender) => {
 function invalidate(tabId) {
   for(const s of sessions.values()) if(s.tabId===tabId) {
     release(s); s.tabId=null;
-    post(s.port,{type:'invalidated',message:'官网标签页已关闭或重新加载。同步已断开，请重新绑定；不会自动重发。'});
+    post(s.port,{type:'invalidated',provider:s.provider,message:'官网标签页已关闭或重新加载。同步已断开，请重新绑定；不会自动重发。'});
   }
 }
 chrome.tabs.onRemoved.addListener(invalidate);
