@@ -107,7 +107,7 @@ document.querySelector('#send').onclick=()=>{
     await panel.waitForTimeout(1000);assert.equal(await panel.locator('.message.assistant').last().textContent(),lastText);
     await official.reload();await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('重新加载'));
     assert(await panel.locator('#send').isDisabled());await official.close();
-    await panel.locator('details').evaluate(el=>el.open=false);
+    await panel.locator('.connection').evaluate(el=>el.open=false);
     await panel.screenshot({path:path.join(qa,'fixture-workspace.png'),fullPage:true});
     assert.deepEqual(errors,[]);
     console.log('PASS: 7 providers via explicit calibration; rich text input, cancellation, navigation disconnect; split layout at 4 widths. NOT a live provider acceptance.');
