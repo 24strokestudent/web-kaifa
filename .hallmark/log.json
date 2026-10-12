@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-10-12",
+    "macrostructure": "Workbench",
+    "theme": "warm paper",
+    "enrichment": "none",
+    "scope": "app",
+    "brief": "将用户确认的参考稿迁移到正式学习网站，保留课程、进度与备份能力"
+  },
+  {
+    "date": "2026-10-12",
     "macrostructure": "Component Playground",
     "theme": "Almanac",
     "enrichment": "real editable previews",

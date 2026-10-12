@@ -12,6 +12,8 @@
 - 学习 Web 前 14 天与 Go 28 天，每节有任务、完整讲义、提示、验收与小测。Web 后续前端 / 全栈阶段也有入口。
 - 修改 Web 示例，在隔离预览中看到真实效果；Go 和 SQL 按讲义在自己的电脑上运行。
 - 带着当前课程、自己的代码和报错整理 AI 提问；也可以复制 10 个具体场景模板。
+- 在同一工作台切换本课任务、代码、验收与笔记；右侧 AI 助教可按需带入课程和代码，手机上以可关闭窗口呈现。
+- 阅读“怎样用 AI 开发”，练习描述需求、拆小任务、带证据排错与自己验证。
 - 保存课内笔记和代码草稿，导出 / 导入 JSON，或导出 Markdown 留在仓库。
 
 本站没有在线 AI 接口，不要求 API Key。提问台只整理文字，由你复制到常用的 AI 工具。进度保存在当前浏览器，不会自动同步到 GitHub。原互动手册的记录与新网页分开保存。
@@ -87,6 +89,10 @@ python -m http.server 8743
 ```powershell
 python scripts/check_materials.py
 node scripts/check_site.cjs
+node scripts/test_site.cjs
+node scripts/test_workbench.cjs
 ```
 
 浏览器集成检查位于 `scripts/test_site.cjs`，需要 Playwright 和本机 Edge，测试前先启动上述服务器。它覆盖课程入口、代码预览、完成规则、AI 上下文、记录备份和移动端布局；不要求学习者运行这些开发检查。
+
+工作台扩展检查位于 `scripts/test_workbench.cjs`，使用相同环境。设计与审核记录见 [工作台改版说明](docs/workbench-redesign.md)。AI 服务选择仅表示工具偏好，当前没有真实登录、API 调用或流式回答。
