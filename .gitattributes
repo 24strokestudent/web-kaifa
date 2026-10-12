@@ -3,6 +3,11 @@
 *.py text eol=lf
 *.json text eol=lf
 *.go text eol=lf
+*.js text eol=lf
+*.cjs text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.svg text eol=lf
 *.zip binary
 
 # Preserve the supplied learning materials byte for byte.

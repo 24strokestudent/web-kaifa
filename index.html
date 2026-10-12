@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从第一张网页到 Go 后端，用课时、真实代码预览和 AI 提问模板一步步学习。免费阅读，进度保存在自己的浏览器。">
+  <meta name="theme-color" content="#f7f7f2">
+  <meta http-equiv="Content-Security-Policy" content="frame-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>开发练习册 · Web 与 Go</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script defer src="assets/vendor/marked.umd.js"></script>
+  <script defer src="assets/data/curriculum.js"></script>
+  <script defer src="assets/data/adaptations.js"></script>
+  <script defer src="assets/data/resources.js"></script>
+  <script defer src="assets/data/ai-guide.js"></script>
+  <script defer src="assets/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="#/home" aria-label="开发练习册首页">
+        <svg viewBox="0 0 36 36" aria-hidden="true"><rect x="3" y="3" width="30" height="30" rx="9"/><path d="m15 11-7 7 7 7m6-14 7 7-7 7"/></svg>
+        <span>开发练习册<small>WEB & GO / 边写边学</small></span>
+      </a>
+      <button class="icon-button menu-toggle" id="menu-toggle" aria-label="展开导航" aria-expanded="false" aria-controls="site-nav">☰</button>
+    </div>
+    <div class="side-content" id="side-content">
+      <nav id="site-nav" aria-label="主要导航">
+        <a href="#/home" data-nav="home"><span aria-hidden="true">⌂</span>开始学习</a>
+        <a href="#/ai" data-nav="ai" class="ai-nav"><span aria-hidden="true">✧</span>AI 提问台<span class="nav-tag">先问提示</span></a>
+        <p class="nav-label">学习路线</p>
+        <a href="#/web" data-nav="web"><span aria-hidden="true">&lt;/&gt;</span>Web 开发</a>
+        <a href="#/go" data-nav="go"><span aria-hidden="true">{ }</span>Go 后端</a>
+        <p class="nav-label">随手查一查</p>
+        <a href="#/resources" data-nav="resources"><span aria-hidden="true">↗</span>官方资料</a>
+        <a href="#/progress" data-nav="progress"><span aria-hidden="true">✓</span>我的进度</a>
+      </nav>
+      <div class="side-progress" id="side-progress"></div>
+      <div class="side-note">不用登录，学到哪就记到哪。<br>换电脑前记得导出记录。</div>
+      <a class="repo-link" href="https://github.com/zhouwu97/web-kaifa" target="_blank" rel="noopener noreferrer">GitHub · 看源码与反馈 ↗</a>
+    </div>
+  </aside>
+  <div class="page-shell">
+    <header class="topbar">
+      <div id="breadcrumb" class="breadcrumb">开始学习</div>
+      <form class="search-form" id="search-form" role="search">
+        <label for="global-search">查找课程</label>
+        <input id="global-search" type="search" placeholder="HTML、HTTP、数据库…" autocomplete="off">
+        <button type="submit" class="icon-button" aria-label="搜索">⌕</button>
+      </form>
+    </header>
+    <div id="storage-note" class="storage-note" hidden role="status"></div>
+    <main id="main" tabindex="-1"></main>
+    <footer class="site-footer">
+      <div><strong>开发练习册</strong><p>留下一版自己的代码，问题就有了起点。</p></div>
+      <div><span>继续动手</span><a href="#/web">Web 路线</a><a href="#/go">Go 路线</a><a href="#/ai">AI 提问台</a></div>
+      <div><span>查资料与保存</span><a href="#/resources">官方资料</a><a href="#/progress">导出学习记录</a><a href="materials/README.md">原始教材索引</a></div>
+    </footer>
+  </div>
+  <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+  <noscript><div class="noscript">网页需要开启 JavaScript 才能使用练习和进度功能。你也可以直接阅读 <a href="materials/web/学习路线.md">Web 教材</a> 与 <a href="materials/go/完整学习清单.md">Go 教材</a>。</div></noscript>
+</body>
+</html>

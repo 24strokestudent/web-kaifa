@@ -10,3 +10,9 @@
 - Go 模块在各个独立练习或项目目录中创建，不在整个资料仓库根目录初始化。
 - 不提交密码、令牌、数据库数据目录、node_modules 或编译产物。
 - 教材改动后同步更新 materials/manifest.json，并执行 python scripts/check_materials.py。
+- 学习网站入口是 index.html，assets/data 下的课程与模板是补充内容；原教材仍在 materials。
+- 同时照顾零基础和有编程基础者，不把 C++ 基础设为 Go 起步课的前提。
+- AI 提问台只生成可复制文字，不伪造模型回复；生成或复制提示不会更新课时完成状态。
+- 代码预览保持 iframe 隔离；不要给它 allow-same-origin，不自动执行已编辑或导入的代码草稿。
+- 网页修改后运行 node scripts/check_site.cjs；涉及状态、备份或交互时运行 scripts/test_site.cjs 的浏览器检查。
+- 重要学习状态的导入、清空要可撤销，异常记录要保留，不能静默覆盖。

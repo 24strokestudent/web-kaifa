@@ -1,6 +1,22 @@
-# Web 开发与 Go 后端学习
+# 开发练习册：Web 与 Go
 
-这是我的开发学习仓库，用来保存教材、学习笔记、练习代码和阶段项目。先按 Web 基础与 Go 后端两条路线整理，后续学习内容继续放在同一仓库。
+给第一次写代码的人，也给已经会一点编程、想转学 Web 或 Go 的人。选一节课，先动手；卡住时，用 AI 提问台把自己的目标、代码和报错整理清楚，再回到代码里验证。
+
+**在线阅读：[打开开发练习册](https://zhouwu97.github.io/web-kaifa/)。**
+
+**本机阅读**：下载或克隆仓库，双击 [index.html](index.html)。课程、提示模板和进度功能不需要安装依赖；官方资料入口需要联网。
+
+## 网页里可以做什么
+
+- 选择“第一次写代码”或“写过代码”，按自己的起点进入路线。
+- 学习 Web 前 14 天与 Go 28 天，每节有任务、完整讲义、提示、验收与小测。Web 后续前端 / 全栈阶段也有入口。
+- 修改 Web 示例，在隔离预览中看到真实效果；Go 和 SQL 按讲义在自己的电脑上运行。
+- 带着当前课程、自己的代码和报错整理 AI 提问；也可以复制 10 个具体场景模板。
+- 保存课内笔记和代码草稿，导出 / 导入 JSON，或导出 Markdown 留在仓库。
+
+本站没有在线 AI 接口，不要求 API Key。提问台只整理文字，由你复制到常用的 AI 工具。进度保存在当前浏览器，不会自动同步到 GitHub。原互动手册的记录与新网页分开保存。
+
+网页使用方法见 [学习网站说明](docs/site-guide.md)。
 
 ## 从这里开始
 
@@ -9,7 +25,7 @@
 | Web 前端 / 全栈 | [Web 学习手册](materials/web/学习手册.html) | [Web 学习路线](materials/web/学习路线.md) | [Web 进度](progress/web.md) |
 | Go 后端 | [28 天互动学习手册](materials/go/28天互动学习手册.html) | [完整学习清单](materials/go/完整学习清单.md) | [Go 进度](progress/go.md) |
 
-**在本机阅读互动手册**：进入上面的 `materials/web` 或 `materials/go` 目录，双击 HTML 文件即可离线打开。GitHub 网页上的 HTML 链接用于查看源码；浏览器互动阅读需要先下载或克隆仓库。手册中的外部参考资料需要联网访问。
+上表是保留的原始教材。日常学习可从新网页开始；需要对照时再打开原手册。GitHub 仓库页面显示 HTML 源码，互动阅读请使用在线站点或本机文件。
 
 **后续学习安排**：见 [学习计划](docs/study-plan.md)。先理解知识点，再写练习、保存验收结果，最后更新进度。
 
@@ -17,6 +33,9 @@
 
 ```text
 web-kaifa/
+├── index.html            学习网站入口，支持本机打开
+├── tokens.css            统一颜色、字体和间距
+├── assets/               网页交互、课程、AI 模板和官方资料
 ├── materials/            教材原文、资料包和来源校验记录
 │   ├── web/              Web 前端与全栈教材
 │   ├── go/               Go 后端教材
@@ -33,7 +52,7 @@ web-kaifa/
 │   └── go/problem-tracker/  刷题记录 API 的待实现计划
 ├── progress/             可提交到 Git 的学习进度和导出备份
 ├── templates/            每日笔记与项目 README 模板
-└── scripts/              教材完整性检查
+└── scripts/              教材、课程结构和浏览器交互检查
 ```
 
 教材已经整理入库；学习任务和项目实现均从未完成状态开始。`projects/go/problem-tracker` 目前只包含计划，后续学习时逐步实现。
@@ -53,4 +72,21 @@ git commit -m "study: record today's learning"
 git push
 ```
 
-更详细的约定见 [仓库使用说明](docs/repository-guide.md)。教材来源见 [资料索引](materials/README.md)；有 Python 3 时可执行 `python scripts/check_materials.py` 检查教材是否完整。
+更详细的约定见 [仓库使用说明](docs/repository-guide.md)。教材来源见 [资料索引](materials/README.md)，整理与补充审核见 [课程审核](docs/curriculum-audit.md)、[官方资料核验](docs/research-notes.md) 和 [AI 学习依据](docs/ai-learning-notes.md)。
+
+## 本地预览与检查
+
+直接打开 `index.html` 可阅读。开发时也可以在根目录启动静态服务器：
+
+```powershell
+python -m http.server 8743
+```
+
+然后访问 `http://localhost:8743/`。检查教材完整性与课程数据：
+
+```powershell
+python scripts/check_materials.py
+node scripts/check_site.cjs
+```
+
+浏览器集成检查位于 `scripts/test_site.cjs`，需要 Playwright 和本机 Edge，测试前先启动上述服务器。它覆盖课程入口、代码预览、完成规则、AI 上下文、记录备份和移动端布局；不要求学习者运行这些开发检查。

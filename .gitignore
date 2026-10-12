@@ -46,3 +46,6 @@ temp/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Local browser review images and temporary test backups
+.qa/
