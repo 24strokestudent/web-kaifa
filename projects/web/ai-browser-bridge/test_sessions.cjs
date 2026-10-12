@@ -25,6 +25,16 @@ const {pathToFileURL}=require('node:url');
   await page.selectOption('#provider','ds');await page.locator('#send:enabled').waitFor();
   assert.equal(await page.inputValue('#question'),'ds draft');assert.match(await page.locator('#messages').textContent(),/ds reply/);assert.doesNotMatch(await page.locator('#messages').textContent(),/doubao/);
   assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='send').length),2);
+  // Enter sends; both requested modifiers insert a newline at the cursor.
+  await page.fill('#question','first');await page.locator('#question').press('Shift+Enter');await page.locator('#question').press('Control+Enter');
+  assert.equal(await page.inputValue('#question'),'first\n\n');assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='send').length),2);
+  await page.locator('#question').dispatchEvent('compositionstart');await page.locator('#question').press('Enter');
+  assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='send').length),2,'IME confirmation must not send');
+  await page.locator('#question').dispatchEvent('compositionend');
+  await page.fill('#question','keyboard message');await page.locator('#question').press('Enter');
+  assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='send').length),3);
+  await page.locator('#question').press('Enter');assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='send').length),3,'empty Enter must not send');
+  await page.fill('#question','ds draft');
   await page.reload();await page.locator('#send:enabled').waitFor();assert.equal(await page.inputValue('#question'),'ds draft');assert.match(await page.locator('#messages').textContent(),/ds reply/);assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='send').length),0);
   await page.evaluate(()=>localStorage.setItem('closed','1'));await page.selectOption('#provider','doubao');await page.getByText('官网标签页已关闭',{exact:true}).waitFor();assert(await page.locator('#send').isDisabled());assert.match(await page.locator('#messages').textContent(),/doubao reply/);
   await page.evaluate(()=>localStorage.setItem('workbook-bridge-conversations-v1','{bad'));await page.reload();await page.fill('#question','new draft');assert.equal(await page.evaluate(()=>localStorage.getItem('workbook-bridge-conversations-v1')),'{bad');assert.match(await page.locator('#save-state').textContent(),/原记录已保留/);

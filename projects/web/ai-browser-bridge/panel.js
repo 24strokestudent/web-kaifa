@@ -59,6 +59,23 @@
     remember();post({type:'detach'});checked();bindOperation=null;restore($('#provider').value);remember();
   });
   $('#question').addEventListener('input',remember);
+  let composing=false;
+  $('#question').addEventListener('compositionstart',()=>{composing=true;});
+  $('#question').addEventListener('compositionend',()=>{composing=false;});
+  $('#question').addEventListener('keydown',event=>{
+    if(event.key!=='Enter' || event.isComposing || composing || event.keyCode===229)return;
+    event.preventDefault();
+    if(event.repeat)return;
+    if(event.ctrlKey || event.shiftKey || event.metaKey){
+      const input=event.currentTarget;
+      if(input.value.length-(input.selectionEnd-input.selectionStart)+1<=input.maxLength){
+        input.setRangeText('\n',input.selectionStart,input.selectionEnd,'end');
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+      }
+      return;
+    }
+    if(!event.altKey && ready && !busy && !checking && $('#question').value.trim())$('#compose').requestSubmit();
+  });
   window.addEventListener('pagehide',remember);
   $('#tabs').addEventListener('change',()=>{ready=false;state();status('标签页已改变，请重新绑定。');});
   for(const input of document.querySelectorAll('details input')) input.addEventListener('input',()=>{ready=false;state();});

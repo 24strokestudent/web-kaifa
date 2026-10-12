@@ -46,6 +46,11 @@ const {pathToFileURL}=require('node:url');
   assert.equal(await page.locator('#connection-feedback').getAttribute('role'),'alert');
   assert.equal(await page.locator('#status-title').textContent(),'回复同步中断');
   assert.equal(await page.evaluate(()=>window.__sent.filter(m=>m.type==='send').length),1,'no automatic resend');
+  const editorPage=await browser.newPage();
+  await editorPage.setContent('<rich-textarea><div class="ql-editor" contenteditable="true">input</div><div class="ql-clipboard" contenteditable="true">clipboard helper</div></rich-textarea>');
+  await editorPage.addScriptTag({path:path.join(__dirname,'providers.js')});
+  assert.equal(await editorPage.evaluate(()=>{for(const s of BRIDGE_PROVIDERS.gemini.input){const n=[...document.querySelectorAll(s)].filter(e=>e.getClientRects().length);if(n.length)return n.length;}return 0;}),1,'Gemini clipboard helper is not a second editor');
+  await editorPage.close();
   assert.deepEqual(errors,[]);
   console.log('PASS: visible 10→9→6 countdown, staged status, prominent error/retry, watchdog expiry, stale response rejection, streaming error, three widths; no real requests.');
  }finally{await browser.close();}

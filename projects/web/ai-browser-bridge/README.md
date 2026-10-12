@@ -85,3 +85,8 @@ node scripts/test_workbench.cjs
 - 豆包的发现智能体页面没有输入框，现有明确提示打开对话页；新版回复使用 receive_message 内的 message_text_content，避免漏读及误读用户消息。
 - 用户已反馈 DS 小窗口收到真实回复。豆包官网两轮真实回复已确认，扩展默认适配器通过 DOM 回归；用户安装实例的豆包端到端仍待确认。
 - 回归：`node projects/web/ai-browser-bridge/test_sessions.cjs`（需要 Playwright），覆盖分平台历史、草稿、自动恢复、刷新、已关闭标签页与损坏存档保护。
+
+
+## 0.1.5
+
+Enter 发送，Ctrl+Enter / Shift+Enter 换行；中文输入法选字期间不触发发送。修复扩展重新加载后旧 dispose 访问失效 runtime 导致新脚本安装失败，握手与重载回归见 `test_reload.cjs`。Gemini 输入适配排除 Quill 剪贴板辅助节点，避免匹配出两个输入框。

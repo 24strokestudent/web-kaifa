@@ -21,7 +21,7 @@
       <details><summary>适配诊断 / 校准</summary><p>各平台仍在适配中。若匹配失败，可填写官网元素的 CSS 选择器后重新绑定。回复选择器必须只匹配助手回复，不能包含用户消息。</p><label>输入框<input id="selector-input" placeholder="默认适配器"></label><label>发送按钮<input id="selector-send" placeholder="默认适配器"></label><label>每条助手回复<input id="selector-answer" placeholder="默认适配器"></label><label>生成时的停止按钮<input id="selector-stop" placeholder="可选；没有时不推断完成"></label><pre id="diagnostics">未检查</pre></details>
     </details>
     <div id="messages" class="messages" role="log" aria-label="本工作台本次会话"><p class="empty">先在官网登录并打开一段新对话，再绑定标签页。这里只同步你从本窗口发送后新增的回复，不导入官网历史。</p></div>
-    <form id="compose"><label for="question">你的问题</label><textarea id="question" maxlength="12000" placeholder="先问一个小问题，验证官网连接。" required></textarea><div class="row"><button id="send" class="primary" disabled>发送 ↑</button><button id="cancel" type="button" disabled>停止同步</button><button id="export" type="button">导出对话</button></div></form>
+    <form id="compose"><label for="question">你的问题</label><textarea aria-describedby="keyboard-help" id="question" maxlength="12000" placeholder="先问一个小问题，验证官网连接。" required></textarea><p id="keyboard-help">Enter 发送 · Ctrl / Shift + Enter 换行</p><div class="row"><button id="send" class="primary" disabled>发送 ↑</button><button id="cancel" type="button" disabled>停止同步</button><button id="export" type="button">导出对话</button></div></form>
     <p class="footnote"><span id="save-state">对话与草稿保存在本机，切换 AI 或刷新后可恢复。</span> 停止同步不会停止 AI 生成。</p>
   </aside>
 </div>

@@ -1,9 +1,16 @@
 /* Isolated content script. No cookies, token extraction, fetch, or page-world code. */
 (() => {
-  const version=chrome.runtime.getManifest().version;
+  // Old isolated-world closures may survive extension reload with no live runtime.
+  const runtime=typeof chrome!=='undefined'?chrome.runtime:undefined;
+  let version, messageEvent;
+  try {
+    messageEvent=runtime?.onMessage;
+    if(!messageEvent?.addListener) return;
+    version=runtime.getManifest().version;
+  } catch { return; }
   const previous=globalThis.__workbookBridge;
-  if(typeof previous?.dispose==='function') previous.dispose();
-  let config, running, bindingToken, pending;
+  try { if(typeof previous?.dispose==='function') previous.dispose(); } catch { /* Legacy disposer belongs to an invalidated runtime. */ }
+  let config, running, bindingToken, pending, disposed=false;
   const visible = el => !!el.getClientRects().length && getComputedStyle(el).visibility!=='hidden';
   function nodes(key) {
     for(const selector of config[key] || []) {
@@ -25,7 +32,7 @@
   }
   function emit(text,status,terminal=false,error=false) {
     if(!running) return;
-    chrome.runtime.sendMessage({type:'update',id:running.id,text,status,terminal,error}).catch(cancel);
+    try { Promise.resolve(runtime.sendMessage({type:'update',id:running.id,text,status,terminal,error})).catch(cancel); } catch { cancel(); }
     if(terminal) cancel();
   }
   async function send(m) {
@@ -70,6 +77,7 @@
         if(answers.length>before.length && text && !baseline.has(text) && text!==m.text.trim() && text!==running.text) {
           running.text=text; running.changed=Date.now(); running.stableNotified=false;
           emit(text,'正在回复…');
+          if(!running) return;
         }
         if(running.text && running.seenStop && !stop && Date.now()-running.changed>1800) {
           emit(running.text,'本轮同步结束。',true); return;
@@ -86,7 +94,9 @@
     button.click();
     emit('','正在等待回复…');
   }
-  const listener=(message,_sender,reply) => {
+  const listener=(message,_sender,respond) => {
+    if(disposed) return;
+    const reply=value=>{try{respond(value);}catch{cancel();}};
     if(message.type==='workbook:hello') { reply({ok:true,version}); return; }
     if(!['workbook:inspect','workbook:send','workbook:cancel'].includes(message.type)) return;
     const m={...message,type:message.type.slice('workbook:'.length)};
@@ -108,6 +118,9 @@
     })().then(reply,error=>{if(m.type==='send')pending=null;reply({ok:false,error:error.message});});
     return true;
   };
-  chrome.runtime.onMessage.addListener(listener);
-  globalThis.__workbookBridge={version,dispose(){cancel();chrome.runtime.onMessage.removeListener(listener);}};
+  try { messageEvent.addListener(listener); } catch { cancel(); return; }
+  globalThis.__workbookBridge={version,dispose(){
+    disposed=true;cancel();
+    try { messageEvent.removeListener(listener); } catch { /* Already invalidated by the browser. */ }
+  }};
 })();
