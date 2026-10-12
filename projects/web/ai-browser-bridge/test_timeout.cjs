@@ -33,7 +33,7 @@ async function check(mode){
 // Reinstalling after a same-version reload must replace the listener, not trust a stale sentinel.
 {
  const listeners=new Set();
- const scope={chrome:{runtime:{getManifest:()=>({version}),onMessage:{addListener:f=>listeners.add(f),removeListener:f=>listeners.delete(f)}}},__workbookBridge:true};
+ const scope={crypto:{randomUUID:()=> 'doc-test'},chrome:{runtime:{getManifest:()=>({version}),onMessage:{addListener:f=>listeners.add(f),removeListener:f=>listeners.delete(f)}}},__workbookBridge:true};
  vm.createContext(scope);const code=fs.readFileSync(path.join(__dirname,'bridge.js'),'utf8');
  vm.runInContext(code,scope);assert.equal(listeners.size,1);
  const first=[...listeners][0];vm.runInContext(code,scope);assert.equal(listeners.size,1);assert(!listeners.has(first));

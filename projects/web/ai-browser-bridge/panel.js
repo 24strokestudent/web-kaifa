@@ -136,6 +136,14 @@
       if(m.ready) $('.connection').open=false;
       $('#diagnostics').textContent+='\n元素匹配：'+JSON.stringify(m.counts,null,2);
       status(m.ready?'连接已就绪，可以开始对话。请保持对应官网标签页打开。':`元素未匹配或不唯一（输入框 ${m.counts.input}，发送按钮 ${m.counts.send}）。请检查登录或展开适配诊断。`,m.ready?'ready':'error');
+    }else if(m.type==='recovering' && m.provider===activeProvider){
+      checking=true;ready=false;state();status(m.message,'pending');
+    }else if(m.type==='reconnected' && m.provider===activeProvider){
+      checked();ready=m.ready;busy=m.busy;state();
+      status(m.interrupted?'连接已自动恢复。上一轮因页面刷新中断，没有重发；请先核对 AI 页面。':busy?'连接正常，继续等待回复…':'连接已自动恢复，可以继续对话。',busy?'pending':'ready');
+      if(m.interrupted && answer)answer.record.status='页面刷新中断，未自动重发';
+    }else if(m.type==='reconnect-failed' && m.provider===activeProvider){
+      checked();ready=false;busy=false;state();status(m.message,'error');
     }else if(m.type==='started'){
       request=m.id;append('user',m.text);answer=append('assistant','');$('#question').value='';
     }else if(m.type==='update' && m.id===request){
@@ -149,7 +157,7 @@
       status(m.message||m.reason,m.type==='ended'?'info':'error');busy=false;if(m.type!=='ended')ready=false;state();
       if(answer)answer.record.status=m.message||m.reason;
     }
-    if(['bound','started','update','ended','error','invalidated'].includes(m.type))remember();
+    if(['bound','started','update','ended','error','invalidated','reconnected','reconnect-failed'].includes(m.type))remember();
   });
   $('#provider').value=activeProvider;restore(activeProvider);
   if(saveBlocked)$('#save-state').textContent='本机历史异常，原记录已保留；当前对话请导出保存。';

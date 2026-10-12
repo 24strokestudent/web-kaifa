@@ -44,6 +44,7 @@ document.querySelector('#send').onclick=()=>{
     await panel.goto(`chrome-extension://${id}/panel.html`);
     await panel.locator('.connection details summary').click();
     for(const [key,p] of Object.entries(process.env.BRIDGE_MODERN_ONLY?{}:sandbox.BRIDGE_PROVIDERS)){
+      if(process.env.BRIDGE_PROVIDERS && !process.env.BRIDGE_PROVIDERS.split(',').includes(key))continue;
       const official=await context.newPage();await official.goto(p.url);
       if(key==='ds') await official.evaluate(()=>{
         document.querySelector('#ask').placeholder='给 DeepSeek 发送消息 ';
@@ -60,12 +61,37 @@ document.querySelector('#send').onclick=()=>{
         document.querySelector('#send').dataset.testid='chat_input_send_button';
         const old=document.querySelector('.assistant'),wrap=document.createElement('div');wrap.dataset.testid='receive_message';old.dataset.testid='message_text_content';old.replaceWith(wrap);wrap.append(old);
       });
+      if(['kimi','gemini'].includes(key))await official.evaluate(key=>{
+        document.querySelector('#ask').outerHTML='<div id="ask" contenteditable="true" class="'+(key==='kimi'?'chat-input-editor':'ql-editor')+'" style="min-height:40px"></div>';
+        const input=document.querySelector('#ask'),button=document.querySelector('#send'),stop=document.querySelector('#stop');
+        if(key==='gemini'){
+          const rich=document.createElement('rich-textarea');input.replaceWith(rich);rich.append(input);
+          const helper=document.createElement('div');helper.contentEditable='true';helper.className='ql-clipboard';helper.textContent='辅助编辑区域';rich.append(helper);
+          button.className='send-button';stop.setAttribute('aria-label','停止回答');
+        }else{
+          button.className='send-button';stop.className='send-button-container loading';
+        }
+        function wrap(answer){
+          answer.classList.add('markdown');
+          const container=document.createElement(key==='gemini'?'model-response':'div');
+          if(key==='kimi'){
+            container.className='segment-assistant';
+            const thought=document.createElement('div');thought.className='markdown-container toolcall-content-text';thought.innerHTML='<div class="markdown">思考区不能作为正文</div>';container.append(thought);
+            const body=document.createElement('div');body.className='markdown-container';container.append(body);answer.replaceWith(container);body.append(answer);
+          }else{answer.replaceWith(container);container.append(answer);}
+        }
+        wrap(document.querySelector('.assistant'));
+        const original=button.onclick;button.onclick=()=>{
+          original();wrap([...document.querySelectorAll('.assistant')].at(-1));
+          history.pushState({},'',key==='kimi'?'/chat/fixture-new-session':'/app/fixture-session');
+        };
+      },key);
       await panel.locator('.connection').evaluate(el=>el.open=true);
       await panel.selectOption('#provider',key);
       await panel.click('#refresh');
       await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
       await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));
-      for(const [field,selector] of Object.entries({input:'#ask',send:'#send',answer:'.assistant',stop:'#stop'}))await panel.fill('#selector-'+field,['ds','doubao'].includes(key)?'':selector);
+      for(const [field,selector] of Object.entries({input:'#ask',send:'#send',answer:'.assistant',stop:'#stop'}))await panel.fill('#selector-'+field,['ds','doubao','kimi','gemini'].includes(key)?'':selector);
       await panel.click('#bind');await panel.locator('#send:enabled').waitFor({timeout:8000});
       await panel.fill('#question',`${p.name} 桥接验收（夹具）`);await panel.click('#send');
       await panel.waitForFunction(()=>document.querySelector('.message.assistant:last-child pre')?.textContent==='夹具第一段',null,{timeout:8000}).catch(async error=>{
@@ -75,6 +101,7 @@ document.querySelector('#send').onclick=()=>{
       assert((await panel.locator('.message.assistant').last().textContent()).includes('第二段'));
       assert.equal(await panel.locator('.messages img').count(),0,'remote text must never become HTML');
       assert(!(await panel.locator('#messages').textContent()).includes('旧消息绝不能'));
+      assert(!(await panel.locator('#messages').textContent()).includes('思考区不能作为正文'));
       assert.equal(await official.evaluate(()=>window.sends),1);
       assert.equal(await official.evaluate(()=>window.lastSent),`${p.name} 桥接验收（夹具）`);
       // Existing official drafts are protected, with no second click on send.
@@ -83,7 +110,7 @@ document.querySelector('#send').onclick=()=>{
       assert.equal(await official.locator('#ask').evaluate(e=>e.value??e.innerText),'我的官网草稿');
       assert.equal(await official.evaluate(()=>window.sends),1);
       await official.close();
-      console.log(`PASS ${p.name}: MV3 route, ${['ds','doubao'].includes(key)?'default adapter':'explicit calibration'}, incremental DOM relay, old history exclusion, draft protection (fixture only)`);
+      console.log(`PASS ${p.name}: MV3 route, ${['ds','doubao','kimi','gemini'].includes(key)?'default adapter':'explicit calibration'}, incremental DOM relay, old history exclusion, draft protection (fixture only)`);
     }
     if(!process.env.BRIDGE_MODERN_ONLY){
       const discover=await context.newPage();await discover.goto('https://www.doubao.com/chat/bot/discover');
@@ -131,11 +158,12 @@ document.querySelector('#send').onclick=()=>{
     const lastText=await panel.locator('.message.assistant').last().textContent();
     await official.evaluate(()=>document.querySelector('[data-markdown-text-style="assistant-message"]:last-child').textContent='停止后不应同步');
     await panel.waitForTimeout(1000);assert.equal(await panel.locator('.message.assistant').last().textContent(),lastText);
-    await official.reload();await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('重新加载'));
-    assert(await panel.locator('#send').isDisabled());await official.close();
+    await official.route('https://chatgpt.com/',route=>route.fulfill({contentType:'text/html',body:'<textarea id=prompt-textarea></textarea><button data-testid=send-button>Send</button>'}));
+    await official.reload();await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('连接已自动恢复'));
+    assert(await panel.locator('#send').isEnabled());await official.close();
     await panel.locator('.connection').evaluate(el=>el.open=false);
     await panel.screenshot({path:path.join(qa,'fixture-workspace.png'),fullPage:true});
     assert.deepEqual(errors,[]);
-    console.log('PASS: '+(process.env.BRIDGE_MODERN_ONLY?'modern GPT fixture':'7 provider fixtures')+'; rich text input, deferred send button, cancellation, navigation disconnect; split layout at 4 widths. NOT a live provider acceptance.');
+    console.log('PASS: '+(process.env.BRIDGE_MODERN_ONLY?'modern GPT fixture':process.env.BRIDGE_PROVIDERS?'selected provider fixtures':'7 provider fixtures')+'; rich text input, deferred send button, cancellation, automatic navigation recovery; split layout at 4 widths. NOT a live provider acceptance.');
   }finally{await context.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});

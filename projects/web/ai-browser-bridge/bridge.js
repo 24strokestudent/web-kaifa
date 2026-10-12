@@ -8,6 +8,7 @@
     if(!messageEvent?.addListener) return;
     version=runtime.getManifest().version;
   } catch { return; }
+  const documentId=crypto.randomUUID();
   const previous=globalThis.__workbookBridge;
   try { if(typeof previous?.dispose==='function') previous.dispose(); } catch { /* Legacy disposer belongs to an invalidated runtime. */ }
   let config, running, bindingToken, pending, disposed=false;
@@ -97,7 +98,7 @@
   const listener=(message,_sender,respond) => {
     if(disposed) return;
     const reply=value=>{try{respond(value);}catch{cancel();}};
-    if(message.type==='workbook:hello') { reply({ok:true,version}); return; }
+    if(message.type==='workbook:hello') { reply({ok:true,version,documentId,requestId:running?.id || pending || null}); return; }
     if(!['workbook:inspect','workbook:send','workbook:cancel'].includes(message.type)) return;
     const m={...message,type:message.type.slice('workbook:'.length)};
     (async()=>{
@@ -114,7 +115,7 @@
       }
       const inputs=nodes('input').length, sends=nodes('send').length;
       bindingToken=crypto.randomUUID();
-      return {ok:true,bindingToken,ready:inputs===1 && sends<=1,counts:{input:inputs,send:sends,answer:nodes('answer').length,stop:nodes('stop').length}};
+      return {ok:true,documentId,bindingToken,ready:inputs===1 && sends<=1,counts:{input:inputs,send:sends,answer:nodes('answer').length,stop:nodes('stop').length}};
     })().then(reply,error=>{if(m.type==='send')pending=null;reply({ok:false,error:error.message});});
     return true;
   };

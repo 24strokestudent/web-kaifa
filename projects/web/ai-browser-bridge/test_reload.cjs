@@ -4,7 +4,7 @@ const code=fs.readFileSync(path.join(__dirname,'bridge.js'),'utf8');
 function context(){
  const listeners=new Set();
  const runtime={getManifest:()=>({version:'test'}),onMessage:{addListener:f=>listeners.add(f),removeListener:f=>listeners.delete(f)}};
- const scope={chrome:{runtime}};vm.createContext(scope);return {scope,runtime,listeners};
+ const scope={crypto:{randomUUID:()=> 'doc-test'},chrome:{runtime}};vm.createContext(scope);return {scope,runtime,listeners};
 }
 // A disposer from the shipped 0.1.3/0.1.4 code resolves chrome.runtime in its OLD realm.
 const old=context();
