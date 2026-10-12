@@ -92,7 +92,12 @@ chrome.runtime.onConnect.addListener(port => {
   port.onDisconnect.addListener(() => { sessions.delete(port); release(s); });
   port.onMessage.addListener(async m => {
     try {
-      if (m.type === 'ping') { post(port,{type:'pong'}); if(s.tabId && !s.ready && !s.navCheck && !s.connecting)recover(s); return; }
+      if (m.type === 'ping' || m.type === 'scan') {
+        post(port,{type:'pong',version:chrome.runtime.getManifest().version});
+        if(s.tabId && !s.navCheck && !s.connecting)await scanSession(s);
+        else if(m.type==='scan')post(port,{type:'health',provider:s.provider,message:s.connecting?'连接检查正在进行，没有重发问题。':'尚未选择官网对话。输入问题并发送时会自动准备新对话。'});
+        return;
+      }
       if (m.type === 'list') {
         const p = BRIDGE_PROVIDERS[m.provider];
         if (!p) throw Error('未知服务');
@@ -193,10 +198,27 @@ function invalidate(tabId,message='AI 标签页已关闭。聊天记录已保留
     post(s.port,{type:'invalidated',provider:s.provider,message});
   }
 }
-async function recover(s) {
+async function scanSession(s){
+  if(s.scanning)return;
+  s.scanning=true;
+  try{
+    const tabId=s.tabId,request=s.request;
+    const snapshot=await timed(chrome.tabs.sendMessage(tabId,{type:'workbook:scan'},{frameId:0}),1200,'同步检查未回应').catch(()=>null);
+    if(!sessions.has(s.port) || s.navCheck || s.connecting || s.tabId!==tabId || s.request!==request)return;
+    const current=snapshot?.ok && snapshot.version===chrome.runtime.getManifest().version && snapshot.documentId===s.documentId && snapshot.bindingToken===s.bindingToken;
+    if(!current || !s.ready || s.request && snapshot.requestId!==s.request && snapshot.lastUpdate?.id!==s.request){await recover(s,true);return;}
+    if(s.request && snapshot.lastUpdate?.id===s.request){
+      const update=snapshot.lastUpdate;
+      post(s.port,{type:'update',id:s.request,text:typeof update.text==='string'?update.text.slice(0,200000):'',status:update.status,terminal:!!update.terminal,error:!!update.error});
+      if(update.terminal){locks.delete(s.tabId);s.request=null;}
+    }
+    post(s.port,{type:'health',provider:s.provider,counts:snapshot.counts,message:s.request?(snapshot.counts?.stop?'官网仍在生成，同步连接正常。':'同步连接正常，正在检查新增回复；不会重发。'):'连接正常，原会话可继续使用。'});
+  }finally{s.scanning=false;}
+}
+async function recover(s,quiet=false) {
   const marker={},tabId=s.tabId;s.navCheck=marker;
   const live=()=>sessions.has(s.port) && s.navCheck===marker && s.tabId===tabId;
-  post(s.port,{type:'recovering',provider:s.provider,message:'正在检查会话连接，不会重新发送问题…'});
+  if(!quiet)post(s.port,{type:'recovering',provider:s.provider,message:'正在检查会话连接，不会重新发送问题…'});
   try {
     const tab=await timed(chrome.tabs.get(tabId),1000,'标签页检查超时');
     if(!live())return;
@@ -205,7 +227,7 @@ async function recover(s) {
     const hello=await timed(chrome.tabs.sendMessage(tabId,{type:'workbook:hello'},{frameId:0}),700,'会话握手超时').catch(()=>null);
     if(!live())return;
     // History API URL changes can emit loading without replacing the content script.
-    if(s.ready && !s.pendingInterruption && hello?.documentId && hello.documentId===s.documentId && (!s.request || hello.requestId===s.request)) {
+    if(s.ready && !s.pendingInterruption && hello?.version===chrome.runtime.getManifest().version && hello?.documentId && hello.documentId===s.documentId && hello.bindingToken===s.bindingToken && (!s.request || hello.requestId===s.request)) {
       post(s.port,{type:'reconnected',provider:s.provider,ready:true,busy:!!s.request,interrupted:false});return;
     }
     s.pendingInterruption ||= !!s.request;

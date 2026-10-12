@@ -51,5 +51,9 @@
   const start=()=>{show(state);retry();};
   document.addEventListener('DOMContentLoaded',start,{once:true});
   window.addEventListener('pageshow',start);
+  const announceProbe=()=>{if(!document.hidden)window.postMessage({type:'workbook:extension-probe'},location.origin);};
+  window.addEventListener('focus',announceProbe);
+  document.addEventListener('visibilitychange',announceProbe);
+  setInterval(announceProbe,15000);
   start();
 })();

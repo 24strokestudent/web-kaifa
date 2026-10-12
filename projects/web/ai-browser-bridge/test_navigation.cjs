@@ -4,7 +4,7 @@ const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path'),asse
  let connect,receive,updated,removed,request=null,documentId='doc-a',cancelled=0,sendCount=0,host='https://www.kimi.com/chat/one';const out=[];
  const event=()=>({addListener(){}});
  const chrome={action:{onClicked:event()},permissions:{contains:async()=>true},runtime:{getManifest:()=>({version:'test'}),getURL:p=>'chrome-extension://test/'+p,onConnect:{addListener:f=>connect=f},onMessage:event()},scripting:{executeScript:async()=>{}},tabs:{get:async()=>({id:7,url:host,active:true,status:'complete'}),onUpdated:{addListener:f=>updated=f},onRemoved:{addListener:f=>removed=f},sendMessage:async(id,m)=>{
-  if(m.type==='workbook:hello')return {ok:true,version:'test',documentId,requestId:request};
+  if(m.type==='workbook:hello')return {ok:true,version:'test',documentId,bindingToken:'token',requestId:request};
   if(m.type==='workbook:inspect')return {ok:true,ready:true,documentId,bindingToken:'token',counts:{input:1,send:1}};
   if(m.type==='workbook:send'){sendCount++;request=m.id;return {ok:true};}
   if(m.type==='workbook:cancel'){cancelled++;request=null;return {ok:true};}
