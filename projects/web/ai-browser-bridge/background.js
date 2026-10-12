@@ -1,10 +1,18 @@
-importScripts('providers.js');
+importScripts('providers.js','workbook-sites.js');
 const sessions = new Map();
 const locks = new Map();
 const originProvider = url => {
   try { const u = new URL(url); return u.protocol === 'https:' && Object.entries(BRIDGE_PROVIDERS).find(([,p]) => p.hosts.includes(u.hostname))?.[0]; } catch { return null; }
 };
-chrome.action.onClicked.addListener(() => chrome.tabs.create({url:chrome.runtime.getURL('panel.html')}));
+chrome.action.onClicked.addListener(async tab=>{
+  const tabs=await chrome.tabs.query({});
+  const workbook=isWorkbookURL(tab?.url)?tab:tabs.find(t=>isWorkbookURL(t.url));
+  if(workbook){
+    await chrome.tabs.update(workbook.id,{active:true});
+    try{await chrome.tabs.sendMessage(workbook.id,{type:'workbook:open-assistant'},{frameId:0});}
+    catch{await chrome.scripting.executeScript({target:{tabId:workbook.id,frameIds:[0]},files:['workbook-sites.js','site-bridge.js']});await chrome.tabs.sendMessage(workbook.id,{type:'workbook:open-assistant'},{frameId:0});}
+  }else await chrome.tabs.create({url:'https://zhouwu97.github.io/web-kaifa/?assistant=1#/home'});
+});
 function post(port, value) { try { port.postMessage(value); } catch {} }
 function timed(promise,ms,message) {
   let timer;
@@ -64,8 +72,11 @@ async function release(s) {
     await timed(chrome.tabs.sendMessage(tabId, {type:'workbook:cancel', id:request}),2000,'停止同步超时').catch(() => {});
   }
 }
+function isPanelSender(value){
+  try{const actual=new URL(value),expected=new URL(chrome.runtime.getURL('panel.html'));return actual.origin===expected.origin && actual.host===expected.host && actual.pathname===expected.pathname;}catch{return false;}
+}
 chrome.runtime.onConnect.addListener(port => {
-  if (port.name !== 'workbook' || port.sender?.url !== chrome.runtime.getURL('panel.html')) { port.disconnect(); return; }
+  if (port.name !== 'workbook' || !isPanelSender(port.sender?.url)) { port.disconnect(); return; }
   const s = {port, tabId:null, provider:null, request:null, connections:new Map()};
   sessions.set(port,s);
   port.onDisconnect.addListener(() => { sessions.delete(port); release(s); });

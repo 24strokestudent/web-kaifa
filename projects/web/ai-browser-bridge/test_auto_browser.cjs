@@ -2,7 +2,7 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const qa=path.resolve(__dirname,'../../../.qa/auto-bridge');fs.mkdirSync(qa,{recursive:true});
 const extension=fs.mkdtempSync(path.join(qa,'extension-'));
-for(const f of ['manifest.json','providers.js','background.js','bridge.js','panel.html','panel.js','panel.css'])fs.copyFileSync(path.join(__dirname,f),path.join(extension,f));
+for(const f of ['manifest.json','providers.js','background.js','bridge.js','panel.html','panel.js','panel.css','theme.css','workbook-sites.js','site-bridge.js','panel-mode.js'])fs.copyFileSync(path.join(__dirname,f),path.join(extension,f));
 const manifest=JSON.parse(fs.readFileSync(path.join(extension,'manifest.json')));manifest.host_permissions=manifest.optional_host_permissions;fs.writeFileSync(path.join(extension,'manifest.json'),JSON.stringify(manifest));
 function fixture(kimi){return `<!doctype html><meta charset=utf-8><title>隔离扩展测试 · ${kimi?'Kimi':'Gemini'} DOM 夹具</title><h1>合成页面，非 AI 官网回复</h1>
 ${kimi?'<div id=ask class=chat-input-editor contenteditable=true style="min-height:50px"></div>':'<rich-textarea><div id=ask class=ql-editor contenteditable=true style="min-height:50px"></div><div class=ql-clipboard contenteditable=true>辅助输入</div></rich-textarea>'}

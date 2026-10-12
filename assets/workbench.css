@@ -189,3 +189,14 @@ main { max-width: 1180px; padding: 40px 42px 48px; }
   .assistant-panel { position: relative; inset: auto; width: 100%; height: 850px; max-height: 100dvh; border-left: 0; border-top: 1px solid var(--color-rule); }
   body.assistant-open .page-shell { margin-right: 0; }
 }
+
+/* Hallmark · unified workbook assistant · quiet editorial · terracotta
+ * pre-emit critique: P5 H5 E4 S5 R5 V4 */
+html,body{overflow-x:clip}
+#assistant-bridge-frame{display:none;width:100%;height:100%;border:0;background:var(--color-surface)}
+body.assistant-connected #assistant-panel> :not(#assistant-bridge-frame){display:none}
+body.assistant-connected #assistant-bridge-frame{display:block;min-height:0;flex:1}
+body.assistant-connecting .assistant-mode-note{border:1px solid var(--color-rule)}
+#assistant-install{margin-top:var(--space-sm)}
+.assistant-compose button:active,.assistant-close:active{transform:translateY(1px)}
+@media(max-width:900px){body.assistant-connected .assistant-panel{height:820px;max-height:none}}
