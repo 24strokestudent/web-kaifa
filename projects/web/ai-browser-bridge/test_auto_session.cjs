@@ -21,5 +21,6 @@ const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path'),asse
  await receive({type:'send',text:'third'});assert.equal(sends,3);assert.equal(injects,0);
  const workbook={id:99,url:'http://127.0.0.1:8744/#/knowledge'};tabs.set(99,workbook);await clicked(workbook);assert.equal(creates,2,'toolbar returns to existing site instead of another workspace');
  let rejected=false;connect({...port,sender:{url:'https://example.com/panel.html'},disconnect(){rejected=true;}});assert.equal(rejected,true);
+ rejected=false;connect({...port,sender:{url:'file://test/panel.html'},disconnect(){rejected=true;}});assert.equal(rejected,true,'protocol must match the extension page');
  console.log('PASS: new provider conversation created once; two rounds then switch and third round; connection reused with no seed prompt.');
 })().catch(e=>{console.error(e);process.exitCode=1});

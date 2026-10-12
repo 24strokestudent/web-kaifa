@@ -73,7 +73,7 @@ async function release(s) {
   }
 }
 function isPanelSender(value){
-  try{const actual=new URL(value),expected=new URL(chrome.runtime.getURL('panel.html'));return actual.origin===expected.origin && actual.host===expected.host && actual.pathname===expected.pathname;}catch{return false;}
+  try{const actual=new URL(value),expected=new URL(chrome.runtime.getURL('panel.html'));return actual.protocol===expected.protocol && actual.origin===expected.origin && actual.host===expected.host && actual.pathname===expected.pathname;}catch{return false;}
 }
 chrome.runtime.onConnect.addListener(port => {
   if (port.name !== 'workbook' || !isPanelSender(port.sender?.url)) { port.disconnect(); return; }
@@ -123,7 +123,7 @@ chrome.runtime.onConnect.addListener(port => {
           const hello=await timed(chrome.tabs.sendMessage(tab.id,{type:'workbook:hello'},{frameId:0}),700,'检查原会话超时').catch(()=>null);
           if(!live())return;
           if(hello?.version===chrome.runtime.getManifest().version && hello?.documentId===previous.documentId && hello?.bindingToken===previous.bindingToken && !hello.requestId){
-            Object.assign(s,previous);
+            Object.assign(s,previous);s.pendingInterruption=false;s.awaitLogin=false;
             post(port,{type:'bound',operation:m.operation,provider:m.provider,tabId:tab.id,ready:true,reused:true,counts:previous.counts});return;
           }
         }
