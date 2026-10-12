@@ -6,10 +6,14 @@ const originProvider = url => {
 };
 chrome.action.onClicked.addListener(() => chrome.tabs.create({url:chrome.runtime.getURL('panel.html')}));
 function post(port, value) { try { port.postMessage(value); } catch {} }
+function timed(promise,ms,message) {
+  let timer;
+  return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]).finally(()=>clearTimeout(timer));
+}
 async function release(s) {
   if (s.tabId && locks.get(s.tabId) === s) {
     locks.delete(s.tabId);
-    await chrome.tabs.sendMessage(s.tabId, {type:'cancel', id:s.request}).catch(() => {});
+    await timed(chrome.tabs.sendMessage(s.tabId, {type:'cancel', id:s.request}),2000,'停止同步超时').catch(() => {});
   }
   s.request = null;
 }
@@ -33,12 +37,12 @@ chrome.runtime.onConnect.addListener(port => {
         if (locks.has(tab.id) && locks.get(tab.id) !== s) throw Error('这个官网标签页正在被另一个工作台使用');
         await release(s);
         s.tabId=null; s.provider=null;
-        await chrome.scripting.executeScript({target:{tabId:tab.id},files:['providers.js','bridge.js']});
-        const result = await chrome.tabs.sendMessage(tab.id,{type:'inspect',provider:m.provider,overrides:m.overrides});
+        await timed(chrome.scripting.executeScript({target:{tabId:tab.id},files:['providers.js','bridge.js']}),5000,'注入官网脚本超时。请刷新官网后重试，并检查扩展站点权限。');
+        const result = await timed(chrome.tabs.sendMessage(tab.id,{type:'inspect',provider:m.provider,overrides:m.overrides}),3000,'官网检查没有回应。请重新加载扩展，并刷新官网与工作台。');
         if(!result?.ok) throw Error(result?.error || '检查失败');
         if(!sessions.has(port)) return;
         s.tabId=tab.id; s.provider=m.provider; s.bindingToken=result.bindingToken;
-        post(port,{type:'bound',tabId:tab.id,provider:m.provider,...result});
+        post(port,{type:'bound',operation:m.operation,tabId:tab.id,provider:m.provider,...result});
       } else if (m.type === 'send') {
         if(s.request) throw Error('已有请求正在同步，未重复发送');
         if(!s.tabId) throw Error('请先绑定官网标签页');
@@ -58,7 +62,7 @@ chrome.runtime.onConnect.addListener(port => {
       } else if(m.type==='focus') {
         if(s.tabId) { const t=await chrome.tabs.update(s.tabId,{active:true}); await chrome.windows.update(t.windowId,{focused:true}); }
       }
-    } catch(error) { post(port,{type:'error',message:error.message}); }
+    } catch(error) { post(port,{type:'error',operation:m.operation,message:error.message}); }
   });
 });
 chrome.runtime.onMessage.addListener((m,sender) => {

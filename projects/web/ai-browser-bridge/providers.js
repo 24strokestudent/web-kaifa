@@ -7,7 +7,7 @@ globalThis.BRIDGE_PROVIDERS = {
   gemini: {name:'Gemini', url:'https://gemini.google.com/app', hosts:['gemini.google.com'],
     input:['rich-textarea [contenteditable="true"]'], send:['button.send-button','button[aria-label="Send message"]'], answer:['model-response .markdown','model-response message-content'], stop:['button[aria-label="Stop response"]','button[aria-label="停止回答"]']},
   ds: {name:'DeepSeek', url:'https://chat.deepseek.com/', hosts:['chat.deepseek.com'],
-    input:['#chat-input','textarea[placeholder*="DeepSeek"]'], send:['button[aria-label="Send message"]','[role="button"][aria-label="发送"]'], answer:['.ds-markdown'], stop:['button[aria-label="Stop generating"]','[role="button"][aria-label="停止生成"]']},
+    input:['#chat-input','textarea[placeholder*="DeepSeek"]'], send:['button[aria-label="Send message"]','[role="button"][aria-label="发送"]','[role="button"].ds-button--primary.ds-button--circle:has(svg path[d^="M8.3125 0.980206"])'], answer:['.ds-assistant-message-main-content'], stop:['button[aria-label="Stop generating"]','[role="button"][aria-label="停止生成"]','[role="button"].ds-button--primary.ds-button--circle:has(svg path[d^="M2 4.88"])','[role="button"].ds-button--primary.ds-button--circle:has(.ds-loading)']},
   kimi: {name:'Kimi', url:'https://www.kimi.com/', hosts:['www.kimi.com','kimi.com','kimi.moonshot.cn'],
     input:['.chat-input-editor[contenteditable="true"]','[contenteditable="true"][data-lexical-editor="true"]'], send:['button.send-button','.send-button[role="button"]'], answer:['.segment-assistant .markdown','.assistant-content .markdown'], stop:['button[aria-label="停止生成"]']},
   doubao: {name:'豆包', url:'https://www.doubao.com/chat/', hosts:['www.doubao.com'],

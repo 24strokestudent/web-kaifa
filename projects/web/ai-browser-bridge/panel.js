@@ -2,11 +2,13 @@
   const $=s=>document.querySelector(s);
   let port=chrome.runtime.connect({name:'workbook'}), ready=false, busy=false, request=null, answer=null, binding=null;
   const records=[];
+  let checking=false,bindTimer=null,bindOperation=null;
+  function checked(){checking=false;clearTimeout(bindTimer);bindTimer=null;}
   const status=text=>$('#status').textContent=text;
   function state() {
     $('#send').disabled=!ready||busy;
     $('#cancel').disabled=!busy;
-    for(const id of ['provider','tabs','bind','refresh','open']) $('#'+id).disabled=busy;
+    for(const id of ['provider','tabs','bind','refresh','open']) $('#'+id).disabled=busy||checking;
   }
   function post(m) { try{port.postMessage(m);}catch{ready=false;busy=false;state();status('扩展连接已断开，请导出记录后刷新工作台。');} }
   const heartbeat=setInterval(()=>post({type:'ping'}),20000);
@@ -40,7 +42,9 @@
     ready=false;state();
     if(!$('#tabs').value){status('先选择一个官网标签页。');return;}
     const overrides=Object.fromEntries(['input','send','answer','stop'].map(k=>[k,$('#selector-'+k).value]));
-    status('正在检查官网元素…');post({type:'bind',tabId:Number($('#tabs').value),provider:$('#provider').value,overrides});
+    checking=true;bindOperation=crypto.randomUUID();state();
+    bindTimer=setTimeout(()=>{checked();bindOperation=null;ready=false;state();status('连接检查超时。请重新加载扩展，并刷新官网和工作台后重试。没有发送消息。');},10000);
+    status('正在检查官网元素…（最多等待 10 秒）');post({type:'bind',operation:bindOperation,tabId:Number($('#tabs').value),provider:$('#provider').value,overrides});
   });
   $('#focus').addEventListener('click',()=>post({type:'focus'}));
   $('#compose').addEventListener('submit',event=>{
@@ -56,13 +60,15 @@
     const url=URL.createObjectURL(new Blob([JSON.stringify({format:'workbook-bridge-v1',records},null,2)],{type:'application/json'}));
     const a=document.createElement('a');a.href=url;a.download='官网对话记录.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   });
-  port.onDisconnect.addListener(()=>{clearInterval(heartbeat);ready=false;busy=false;state();status('扩展连接已断开，不会重发消息。请导出记录后刷新，再核对官网。');});
+  port.onDisconnect.addListener(()=>{checked();clearInterval(heartbeat);ready=false;busy=false;state();status('扩展连接已断开，不会重发消息。请导出记录后刷新，再核对官网。');});
   port.onMessage.addListener(m=>{
     if(m.type==='tabs' && m.provider===$('#provider').value){
       ready=false;state();$('#tabs').replaceChildren(new Option(m.tabs.length?'请选择官网对话':'没有找到，请先打开官网登录',''));
       for(const t of m.tabs) $('#tabs').add(new Option(`${t.title} · ${t.id}`,String(t.id)));
       status(`找到 ${m.tabs.length} 个官网标签页。选择新对话后绑定。`);
     }else if(m.type==='bound'){
+      if(m.operation!==bindOperation)return;
+      checked();
       if(m.provider!==$('#provider').value || m.tabId!==Number($('#tabs').value))return;
       binding={provider:m.provider,tabId:m.tabId};ready=m.ready;state();
       $('#connection-summary').textContent=BRIDGE_PROVIDERS[m.provider].name+(m.ready?' · 已绑定标签页 / 更改':' · 需要校准');
@@ -75,6 +81,8 @@
       if(answer){const scroll=$('#messages');const atEnd=scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<60;answer.pre.textContent=m.text;answer.record.text=m.text;answer.record.status=m.status;if(atEnd)scroll.scrollTop=scroll.scrollHeight;}
       status(m.status);if(m.terminal){busy=false;state();}
     }else if(['error','ended','invalidated'].includes(m.type)){
+      if(m.operation && m.operation!==bindOperation)return;
+      checked();
       status(m.message||m.reason);busy=false;if(m.type!=='ended')ready=false;state();
       if(answer)answer.record.status=m.message||m.reason;
     }

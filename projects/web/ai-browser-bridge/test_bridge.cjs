@@ -21,7 +21,7 @@ window.sends=0;
 document.querySelector('#send').onclick=()=>{
  window.sends++;const input=document.querySelector('#ask');window.lastSent=input.value;input.value='';
  const stop=document.querySelector('#stop');stop.hidden=false;
- const answer=document.createElement('div');answer.className='assistant';document.body.append(answer);
+ const answer=document.createElement('div');answer.className='assistant ds-assistant-message-main-content';document.body.append(answer);
  setTimeout(()=>answer.textContent='夹具第一段',200);
  setTimeout(()=>answer.textContent='夹具第一段，第二段 <img src=x onerror=alert(1)>',2200);
  setTimeout(()=>stop.hidden=true,3000);
@@ -45,12 +45,21 @@ document.querySelector('#send').onclick=()=>{
     await panel.locator('.connection details summary').click();
     for(const [key,p] of Object.entries(sandbox.BRIDGE_PROVIDERS)){
       const official=await context.newPage();await official.goto(p.url);
+      if(key==='ds') await official.evaluate(()=>{
+        document.querySelector('#ask').placeholder='给 DeepSeek 发送消息 ';
+        const send=document.querySelector('#send');send.setAttribute('role','button');send.className='ds-button--primary ds-button--circle ds-button--disabled';
+        send.innerHTML='<svg><path d="M8.3125 0.980206C8.66767 1.05312"></path></svg>';
+        document.querySelector('#ask').addEventListener('input',()=>send.classList.remove('ds-button--disabled'));
+        document.querySelector('#stop').setAttribute('role','button');document.querySelector('#stop').setAttribute('aria-label','停止生成');
+        document.querySelector('.assistant').classList.add('ds-assistant-message-main-content');
+        const thinking=document.createElement('div');thinking.className='ds-markdown ds-think-content';thinking.textContent='思考区不能作为最终正文';document.body.append(thinking);
+      });
       await panel.locator('.connection').evaluate(el=>el.open=true);
       await panel.selectOption('#provider',key);
       await panel.click('#refresh');
       await panel.waitForFunction(()=>document.querySelector('#tabs').options.length>1);
       await panel.selectOption('#tabs',await panel.locator('#tabs option').nth(1).getAttribute('value'));
-      for(const [field,selector] of Object.entries({input:'#ask',send:'#send',answer:'.assistant',stop:'#stop'}))await panel.fill('#selector-'+field,selector);
+      for(const [field,selector] of Object.entries({input:'#ask',send:'#send',answer:'.assistant',stop:'#stop'}))await panel.fill('#selector-'+field,key==='ds'?'':selector);
       await panel.click('#bind');await panel.locator('#send:enabled').waitFor();
       await panel.fill('#question',`${p.name} 桥接验收（夹具）`);await panel.click('#send');
       await panel.waitForFunction(()=>document.querySelector('.message.assistant:last-child pre')?.textContent==='夹具第一段',null,{timeout:8000}).catch(async error=>{
@@ -68,7 +77,7 @@ document.querySelector('#send').onclick=()=>{
       assert.equal(await official.inputValue('#ask'),'我的官网草稿');
       assert.equal(await official.evaluate(()=>window.sends),1);
       await official.close();
-      console.log(`PASS ${p.name}: MV3 route, explicit binding, incremental DOM relay, old history exclusion, draft protection (fixture only)`);
+      console.log(`PASS ${p.name}: MV3 route, ${key==='ds'?'default DS adapter':'explicit calibration'}, incremental DOM relay, old history exclusion, draft protection (fixture only)`);
     }
     for(const width of [375,768,1024,1440]){
       await panel.setViewportSize({width,height:900});

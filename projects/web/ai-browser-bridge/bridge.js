@@ -17,7 +17,7 @@
     return matches[0];
   }
   const content = el => (el.value ?? el.innerText ?? '').trim();
-  const enabled = el => !el.disabled && el.getAttribute('aria-disabled')!=='true';
+  const enabled = el => !el.disabled && el.getAttribute('aria-disabled')!=='true' && !el.classList.contains('ds-button--disabled');
   function cancel() {
     pending=null;
     if(running) { clearInterval(running.timer); running.observer.disconnect(); running=null; }
