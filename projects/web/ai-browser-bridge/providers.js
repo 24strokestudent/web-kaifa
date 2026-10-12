@@ -1,0 +1,17 @@
+/* Candidate DOM adapters. These are NOT claims of live authenticated verification. */
+globalThis.BRIDGE_PROVIDERS = {
+  gpt: {name:'ChatGPT', url:'https://chatgpt.com/', hosts:['chatgpt.com'],
+    input:['#prompt-textarea'], send:['button[data-testid="send-button"]','button[aria-label="Send prompt"]'], answer:['[data-message-author-role="assistant"]'], stop:['button[data-testid="stop-button"]']},
+  claude: {name:'Claude', url:'https://claude.ai/new', hosts:['claude.ai'],
+    input:['[contenteditable="true"][data-testid="chat-input"]','[contenteditable="true"].ProseMirror'], send:['button[aria-label="Send message"]','button[aria-label="发送消息"]'], answer:['[data-is-streaming] .font-claude-response','.font-claude-response'], stop:['button[aria-label="Stop response"]','button[aria-label="停止回复"]']},
+  gemini: {name:'Gemini', url:'https://gemini.google.com/app', hosts:['gemini.google.com'],
+    input:['rich-textarea [contenteditable="true"]'], send:['button.send-button','button[aria-label="Send message"]'], answer:['model-response .markdown','model-response message-content'], stop:['button[aria-label="Stop response"]','button[aria-label="停止回答"]']},
+  ds: {name:'DeepSeek', url:'https://chat.deepseek.com/', hosts:['chat.deepseek.com'],
+    input:['#chat-input','textarea[placeholder*="DeepSeek"]'], send:['button[aria-label="Send message"]','[role="button"][aria-label="发送"]'], answer:['.ds-markdown'], stop:['button[aria-label="Stop generating"]','[role="button"][aria-label="停止生成"]']},
+  kimi: {name:'Kimi', url:'https://www.kimi.com/', hosts:['www.kimi.com','kimi.com','kimi.moonshot.cn'],
+    input:['.chat-input-editor[contenteditable="true"]','[contenteditable="true"][data-lexical-editor="true"]'], send:['button.send-button','.send-button[role="button"]'], answer:['.segment-assistant .markdown','.assistant-content .markdown'], stop:['button[aria-label="停止生成"]']},
+  doubao: {name:'豆包', url:'https://www.doubao.com/chat/', hosts:['www.doubao.com'],
+    input:['textarea[data-testid="chat_input_input"]','textarea[placeholder*="豆包"]'], send:['button[data-testid="chat_input_send_button"]'], answer:['[data-testid="receive_message"] [class*="markdown"]','[data-testid="message_text_content"][data-role="assistant"]'], stop:['button[data-testid="chat_input_stop_button"]']},
+  glm: {name:'智谱清言', url:'https://chatglm.cn/', hosts:['chatglm.cn'],
+    input:['textarea[placeholder*="清言"]','.input-box [contenteditable="true"]'], send:['button[aria-label="发送"]','.send-btn'], answer:['.answer .markdown-body','.assistant-message .markdown-body'], stop:['button[aria-label="停止生成"]']}
+};

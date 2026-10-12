@@ -83,12 +83,14 @@ fs.mkdirSync(qa, { recursive: true });
         const rect = document.querySelector('#assistant-panel').getBoundingClientRect();
         return rect.left >= 0 && rect.right <= innerWidth + 1;
       }), 'drawer outside viewport: ' + width);
-      if (width < 1280) {
-        assert(await page.locator('.page-shell').evaluate(el => el.inert));
-        await page.locator('#assistant-form button').focus();
-        await page.keyboard.press('Tab');
-        assert.equal(await page.evaluate(() => document.activeElement.id), 'assistant-close');
-      }
+      assert.equal(await page.locator('.page-shell').evaluate(el => el.inert), false);
+      assert(await page.evaluate(() => {
+        const a=document.querySelector('#assistant-panel').getBoundingClientRect();
+        const b=document.querySelector('.page-shell').getBoundingClientRect();
+        return innerWidth>900 ? b.right<=a.left+1 : a.top>=b.bottom-1;
+      }), 'assistant must reserve space: '+width);
+      await page.locator('[data-lesson-tab="code"]').click();
+      assert.equal(await page.locator('[data-lesson-tab="code"]').getAttribute('aria-selected'),'true');
       await page.locator('#assistant-provider').click();
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('#assistant-panel').isVisible(), true, 'Escape closes only modal first');

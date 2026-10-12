@@ -171,13 +171,11 @@
     if (manual) manualOpen = open;
     document.body.classList.toggle('assistant-open', open);
     $('#assistant-panel').hidden = !open;
-    $('#assistant-backdrop').hidden = !open || !modalLayout();
+    $('#assistant-backdrop').hidden = true;
     $('#assistant-toggle').setAttribute('aria-expanded', String(open));
-    $('#assistant-panel').setAttribute('role', modalLayout() ? 'dialog' : 'complementary');
-    if (open && modalLayout()) $('#assistant-panel').setAttribute('aria-modal', 'true');
-    else $('#assistant-panel').removeAttribute('aria-modal');
-    // On narrow screens, prevent keyboard navigation behind the drawer.
-    $('.page-shell').inert = $('#sidebar').inert = open && modalLayout();
+    $('#assistant-panel').setAttribute('role', 'complementary');
+    $('#assistant-panel').removeAttribute('aria-modal');
+    $('.page-shell').inert = $('#sidebar').inert = false;
   }
 
   function openAssistant() {
@@ -206,7 +204,7 @@
     document.body.classList.toggle('lesson-view', Boolean(lesson));
     updateOutline(lesson);
     syncDraft();
-    setOpen(manualOpen ?? (Boolean(lesson) && !modalLayout()));
+    setOpen(manualOpen ?? (Boolean(lesson) && !modalLayout() && !new URLSearchParams(location.search).has('bridge')));
   }
 
   function configure(bridge) {
@@ -219,7 +217,7 @@
         <div class="assistant-compose-area"><form class="assistant-compose" id="assistant-form"><label for="assistant-question">你的问题</label><textarea id="assistant-question" maxlength="4000" aria-describedby="assistant-status" placeholder="例如：我该先写页面结构，还是先调整样式？"></textarea><div class="assistant-row"><small>先要线索，再自己动手</small><button class="button primary" type="submit">整理提问 ↑</button></div></form><p id="assistant-status" class="assistant-status" role="status"></p><p class="assistant-footnote">提问草稿仅保留在当前页面，请及时复制</p></div>
       </aside>
       <dialog class="workbook-dialog" id="provider-dialog" aria-labelledby="provider-title"><div class="assistant-row"><h2 id="provider-title">选择你使用的 AI</h2><button class="assistant-close" data-close-dialog="provider-dialog" aria-label="关闭服务选择">×</button></div><p>选择你准备复制提问到的工具；本站目前没有在线模型连接。</p><div class="provider-options">${['Claude', 'ChatGPT', 'Gemini', 'DeepSeek'].map(name => `<button class="button" data-provider="${name}" aria-pressed="${name === provider}"><strong>${name}</strong><small>未接入</small></button>`).join('')}</div><p>选择服务不会登录第三方账号，也不会把课程或代码发出去。</p><button class="button" id="connection-info">了解站内登录与对话</button></dialog>
-      <dialog class="workbook-dialog" id="connection-dialog" aria-labelledby="connection-title"><div class="assistant-row"><h2 id="connection-title">关于站内对话</h2><button class="assistant-close" data-close-dialog="connection-dialog" aria-label="关闭连接说明">×</button></div><p>当前版本可以直接学习和整理提问，不需要登录。</p><p>后续连接功能计划：登录本站 → 选择有权限的模型 → 确认上下文 → 在侧栏接收流式回答。当前尚未提供账号服务和模型接口。</p><p>第三方官网登录不等于 API 使用权限。本站不会收集你的第三方密码，也不会假装已经连接。</p><button class="button primary" data-close-dialog="connection-dialog">知道了</button></dialog>`;
+      <dialog class="workbook-dialog" id="connection-dialog" aria-labelledby="connection-title"><div class="assistant-row"><h2 id="connection-title">关于站内对话</h2><button class="assistant-close" data-close-dialog="connection-dialog" aria-label="关闭连接说明">×</button></div><p>当前版本可以直接学习和整理提问，不需要登录。</p><p>官网对话桥接扩展原型已单独提供：安装扩展 → 在官网登录 → 绑定官网标签页 → 在扩展工作台中同步对话。七家候选适配器仍需真实账号验证。</p><p>本页仍是本地提问工具，安装扩展也不会自动把它变成在线聊天。扩展不使用付费模型 API，也不会收集官网密码。</p><button class="button primary" data-close-dialog="connection-dialog">知道了</button></dialog>`;
     $('#assistant-toggle').addEventListener('click', () => document.body.classList.contains('assistant-open') ? closeAssistant() : openAssistant());
     $('#assistant-close').addEventListener('click', closeAssistant);
     $('#assistant-backdrop').addEventListener('click', closeAssistant);
@@ -260,16 +258,9 @@
     document.addEventListener('keydown', event => {
       if (!document.body.classList.contains('assistant-open') || $('dialog[open]')) return;
       if (event.key === 'Escape') { event.preventDefault(); closeAssistant(); }
-      if (event.key === 'Tab' && modalLayout()) {
-        const focusables = [...$('#assistant-panel').querySelectorAll('button, input, textarea, summary, [tabindex="0"]')].filter(el => !el.disabled && el.getClientRects().length);
-        const first = focusables[0], last = focusables.at(-1);
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-      }
     });
     matchMedia('(max-width: 1279px)').addEventListener('change', () => {
       setOpen(document.body.classList.contains('assistant-open'));
-      if (modalLayout() && document.body.classList.contains('assistant-open')) $('#assistant-close').focus();
     });
   }
   window.Workbench = { configure, mountLesson, routeChanged, methodPage, refreshProgress };
