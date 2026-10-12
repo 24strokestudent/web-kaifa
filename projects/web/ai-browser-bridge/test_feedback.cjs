@@ -15,7 +15,7 @@ const {pathToFileURL}=require('node:url');
   });
   await page.goto(pathToFileURL(path.join(__dirname,'panel.html')).href);
   await page.clock.install();
-  await page.selectOption('#provider','ds');await page.click('#refresh');await page.selectOption('#tabs','7');await page.click('#bind');
+  await page.selectOption('#provider','ds');await page.locator('.connection').evaluate(e=>e.open=true);await page.click('#refresh');await page.selectOption('#tabs','7');await page.click('#bind');
   assert.equal(await page.locator('#countdown').textContent(),'剩余 10 秒');assert(await page.locator('#bind').isDisabled());
   await page.clock.fastForward(1100);assert.equal(await page.locator('#countdown').textContent(),'剩余 9 秒');
   await page.clock.fastForward(3000);assert.equal(await page.locator('#countdown').textContent(),'剩余 6 秒');

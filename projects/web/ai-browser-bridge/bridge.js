@@ -47,8 +47,8 @@
     if(nodes('send').length>1) throw Error('发送按钮不唯一，未填写或发送');
     pending=m.id;
     const before=nodes('answer');
-    // Existing answer text is only held in this isolated script to avoid importing old history.
-    const baseline=new Set(before.map(content));
+    // Track old nodes; a newly appended answer can legitimately repeat earlier text.
+    const baseline=new Set(before);
     editor.focus();
     if(editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
       const proto=editor instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;
@@ -56,7 +56,13 @@
       editor.dispatchEvent(new Event('input',{bubbles:true}));
     } else if(editor.isContentEditable) {
       const selection=getSelection(), range=document.createRange(); range.selectNodeContents(editor); selection.removeAllRanges(); selection.addRange(range);
-      if(!document.execCommand('insertText',false,m.text)) throw Error('富文本输入失败，请在官网手动输入；没有发送');
+      // One insertText with blank lines can produce extra block boundaries in Chromium.
+      // Insert explicit line breaks so code indentation and empty lines remain exact.
+      const lines=m.text.replace(/\r\n?/g,'\n').split('\n');
+      for(let i=0;i<lines.length;i++){
+        if(i && !document.execCommand('insertLineBreak'))throw Error('富文本换行失败，未发送');
+        if(lines[i] && !document.execCommand('insertText',false,lines[i]))throw Error('富文本输入失败，请在官网手动输入；没有发送');
+      }
       editor.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:m.text}));
     } else throw Error('选择的不是可编辑输入框');
     await new Promise(r=>setTimeout(r,250));
@@ -75,7 +81,7 @@
         const latest=answers.at(-1);
         const text=latest?content(latest):'';
         // Fail closed: only a newly appended answer; never mistake old history for a response.
-        if(answers.length>before.length && text && !baseline.has(text) && text!==m.text.trim() && text!==running.text) {
+        if(answers.length>before.length && text && !baseline.has(latest) && text!==m.text.trim() && text!==running.text) {
           running.text=text; running.changed=Date.now(); running.stableNotified=false;
           emit(text,'正在回复…');
           if(!running) return;
@@ -98,7 +104,7 @@
   const listener=(message,_sender,respond) => {
     if(disposed) return;
     const reply=value=>{try{respond(value);}catch{cancel();}};
-    if(message.type==='workbook:hello') { reply({ok:true,version,documentId,requestId:running?.id || pending || null}); return; }
+    if(message.type==='workbook:hello') { reply({ok:true,version,documentId,bindingToken,requestId:running?.id || pending || null}); return; }
     if(!['workbook:inspect','workbook:send','workbook:cancel'].includes(message.type)) return;
     const m={...message,type:message.type.slice('workbook:'.length)};
     (async()=>{

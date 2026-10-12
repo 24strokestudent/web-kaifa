@@ -42,7 +42,7 @@ document.querySelector('#send').onclick=()=>{
     const id=new URL(worker.url()).host;
     const panel=await context.newPage();const errors=[];panel.on('pageerror',e=>errors.push(e.message));
     await panel.goto(`chrome-extension://${id}/panel.html`);
-    await panel.locator('.connection details summary').click();
+    await panel.locator('.connection').evaluate(e=>e.open=true);await panel.locator('.connection details summary').click();
     for(const [key,p] of Object.entries(process.env.BRIDGE_MODERN_ONLY?{}:sandbox.BRIDGE_PROVIDERS)){
       if(process.env.BRIDGE_PROVIDERS && !process.env.BRIDGE_PROVIDERS.split(',').includes(key))continue;
       const official=await context.newPage();await official.goto(p.url);
@@ -109,6 +109,17 @@ document.querySelector('#send').onclick=()=>{
       await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('已有草稿'));
       assert.equal(await official.locator('#ask').evaluate(e=>e.value??e.innerText),'我的官网草稿');
       assert.equal(await official.evaluate(()=>window.sends),1);
+      if(['kimi','gemini'].includes(key)){
+        await official.fill('#ask','');
+        await panel.fill('#question','第二轮连续对话');await panel.click('#retry');await panel.locator('#send:enabled').waitFor();
+        await panel.locator('#question').press('Enter');await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('本轮同步结束'));
+        assert.equal(await official.evaluate(()=>window.sends),2);
+        const text=await panel.locator('#messages').textContent();
+        await panel.selectOption('#provider','claude');await panel.selectOption('#provider',key);await panel.locator('#send:enabled').waitFor({timeout:8000});
+        assert.equal(await panel.locator('#messages').textContent(),text,'switch retains both rounds');
+        await panel.fill('#question','切回来第三轮');await panel.locator('#question').press('Enter');await panel.waitForFunction(()=>document.querySelector('#status').textContent.includes('本轮同步结束'));
+        assert.equal(await official.evaluate(()=>window.sends),3,'no prompt sent merely for binding');
+      }
       await official.close();
       console.log(`PASS ${p.name}: MV3 route, ${['ds','doubao','kimi','gemini'].includes(key)?'default adapter':'explicit calibration'}, incremental DOM relay, old history exclusion, draft protection (fixture only)`);
     }

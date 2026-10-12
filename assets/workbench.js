@@ -4,6 +4,7 @@
   const $ = selector => document.querySelector(selector);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   let api;
+  let courseParent=null;
   let currentLesson = null;
   let currentKey = 'custom';
   let manualOpen = null;
@@ -128,6 +129,18 @@
     }).join('')}</div>`;
   }
 
+  function publishCourse(){
+    if(!courseParent)return;
+    const l=currentLesson;
+    const lesson=l?{id:l.id,title:l.title,task:l.task,checks:l.checks}:null;
+    const code=l?($('#lesson-code')?.value ?? api.draft(l.id) ?? l.starterCode ?? ''):'';
+    parent.postMessage({type:'workbook:course-context',nonce:courseParent.nonce,lesson,code},courseParent.origin);
+  }
+  window.addEventListener('message',event=>{
+    const m=event.data;
+    if(!new URLSearchParams(location.search).has('bridge') || event.source!==parent || !/^chrome-extension:\/\/[a-p]{32}$/.test(event.origin) || m?.type!=='workbook:course-request' || typeof m.nonce!=='string' || m.nonce.length>80)return;
+    courseParent={origin:event.origin,nonce:m.nonce};publishCourse();setOpen(false);
+  });
   function contextText() {
     const lesson = currentLesson;
     const parts = [];
@@ -147,6 +160,7 @@
   }
 
   function updateContext() {
+    publishCourse();
     if (!$('#assistant-context-preview')) return;
     $('#assistant-context-preview').textContent = contextText() || '本次只包含你在输入框中填写的问题。';
     // A previously generated prompt must never silently gain new code/context.
@@ -179,6 +193,7 @@
   }
 
   function openAssistant() {
+    if(courseParent){publishCourse();parent.postMessage({type:'workbook:course-open',nonce:courseParent.nonce},courseParent.origin);return;}
     returnFocus = document.activeElement;
     setOpen(true, true);
     $('#assistant-question').focus();
@@ -189,6 +204,7 @@
     (validReturn ? returnFocus : $('#assistant-toggle')).focus();
   }
   function seed(mode, code = false) {
+    if(courseParent){publishCourse();parent.postMessage({type:'workbook:course-preset',nonce:courseParent.nonce,mode,includeCode:code},courseParent.origin);return;}
     openAssistant();
     if (code && currentLesson) draft.code = true;
     draft.question = (currentLesson ? `我正在学习“${currentLesson.title}”。\n` : '') + modes[mode];

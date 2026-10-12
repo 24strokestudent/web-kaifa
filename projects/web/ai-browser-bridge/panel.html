@@ -1,27 +1,31 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>开发练习册 · 官网对话工作台</title><link rel="stylesheet" href="panel.css"></head>
 <body>
-<header class="toolbar"><strong>开发练习册 <span>／ 官网对话原型</span></strong><div><label for="course-source">教材</label> <select id="course-source"><option value="https://zhouwu97.github.io/web-kaifa/">线上版本</option><option value="http://localhost:8743/">本地版本</option></select> <button id="toggle" aria-expanded="true">收起助教</button></div></header>
+<header class="toolbar"><strong>开发练习册 <span>／ 官网对话原型</span></strong><div><label for="course-source">教材</label> <select id="course-source"><option value="https://zhouwu97.github.io/web-kaifa/">线上版本</option><option value="http://localhost:8743/">本地版本</option><option value="https://zhouwu97.github.io/web-kaifa/projects/web/ai-workbook-reference/">设计参考</option></select> <button id="toggle" aria-expanded="true">收起助教</button></div></header>
 <div id="workspace" class="workspace">
   <section class="course"><iframe id="course" title="开发练习册课程" src="https://zhouwu97.github.io/web-kaifa/?bridge=1#/web"></iframe></section>
   <aside id="assistant" aria-label="官网 AI 助教">
-    <header class="heading"><span class="eyebrow">A LITTLE HELP, AT THE RIGHT TIME</span><h1>边做，边问。</h1><p>在这里直接对话，使用你已登录的账号与当前模型。对应官网标签页需要保持打开，可以放在后台；关闭或退出登录后需要重新连接。</p></header>
+    <header class="heading"><span class="eyebrow">A LITTLE HELP, AT THE RIGHT TIME</span><h1>边做，边问。</h1><p>使用你的官网账号与当前模型。对应标签页可留在后台，切换 AI 保留原对话。</p></header>
     <section id="connection-feedback" class="feedback" data-kind="info" role="status" aria-live="polite" aria-atomic="true">
       <div class="feedback-heading"><strong id="status-title">尚未连接</strong><span id="countdown" hidden></span></div>
-      <p id="status">选择官网标签页，再点击“绑定并检查”。</p>
+      <p id="status">输入问题即可开始。首次发送会自动准备新对话。</p>
       <progress id="connection-progress" max="10" value="0" aria-label="连接检查已用时间" hidden></progress>
       <div id="recovery" class="row" hidden><button id="retry" type="button">重新检查连接</button><button id="focus-selected" type="button">打开所选官网</button></div>
     </section>
     <div class="provider-switch"><label for="provider">使用哪个 AI</label><select id="provider"></select></div>
-    <details class="connection" open><summary id="connection-summary">选择与连接官网</summary>
+    <details class="connection"><summary id="connection-summary">选择与连接官网</summary>
 
       <div class="row"><button id="open">打开对话 / 登录</button><button id="refresh">授权并查找标签页</button></div>
       <label for="tabs">明确选择要操作的官网对话</label><select id="tabs"><option value="">先查找已打开的官网</option></select>
       <div class="row"><button id="bind">绑定并检查</button><button id="focus">查看官网</button></div>
       <details><summary>适配诊断 / 校准</summary><p>各平台仍在适配中。若匹配失败，可填写官网元素的 CSS 选择器后重新绑定。回复选择器必须只匹配助手回复，不能包含用户消息。</p><label>输入框<input id="selector-input" placeholder="默认适配器"></label><label>发送按钮<input id="selector-send" placeholder="默认适配器"></label><label>每条助手回复<input id="selector-answer" placeholder="默认适配器"></label><label>生成时的停止按钮<input id="selector-stop" placeholder="可选；没有时不推断完成"></label><pre id="diagnostics">未检查</pre></details>
     </details>
-    <div id="messages" class="messages" role="log" aria-label="本工作台本次会话"><p class="empty">先在官网登录并打开一段新对话，再绑定标签页。这里只同步你从本窗口发送后新增的回复，不导入官网历史。</p></div>
-    <form id="compose"><label for="question">你的问题</label><textarea aria-describedby="keyboard-help" id="question" maxlength="12000" placeholder="先问一个小问题，验证官网连接。" required></textarea><p id="keyboard-help">Enter 发送 · Ctrl / Shift + Enter 换行</p><div class="row"><button id="send" class="primary" disabled>发送 ↑</button><button id="cancel" type="button" disabled>停止同步</button><button id="export" type="button">导出对话</button></div></form>
+    <details id="learning-tools" class="learning-tools" open><summary>本课提问与开发方法</summary>
+      <p id="lesson-label">尚未选择课程</p><div class="learning-suggestions"><button type="button" data-learning="plan">帮我把本课任务拆小 ↗</button><button type="button" data-learning="hint">先给我一个线索 ↗</button><button type="button" data-learning="debug">教我怎样排查报错 ↗</button></div>
+      <label><input id="include-task" type="checkbox" checked> 当前课程与验收标准</label><label><input id="include-code" type="checkbox"> 我编辑的代码</label><details><summary>查看将带入的内容</summary><pre id="context-preview">仅发送你填写的问题。</pre></details>
+    </details>
+    <div id="messages" class="messages" role="log" aria-label="本工作台本次会话"><p class="empty">直接输入问题，首次发送时自动新建对话。官网页面可以留在后台。</p></div>
+    <form id="compose"><label for="question">你的问题</label><textarea aria-describedby="keyboard-help" id="question" maxlength="12000" placeholder="你想做什么，或哪一步卡住了？" required></textarea><p id="keyboard-help">Enter 发送 · Ctrl / Shift + Enter 换行</p><div class="row"><button id="send" class="primary" disabled>发送 ↑</button><button id="cancel" type="button" disabled>停止同步</button><button id="export" type="button">导出对话</button></div></form>
     <p class="footnote"><span id="save-state">对话与草稿保存在本机，切换 AI 或刷新后可恢复。</span> 停止同步不会停止 AI 生成。</p>
   </aside>
 </div>

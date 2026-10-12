@@ -66,26 +66,41 @@ async function release(s) {
 }
 chrome.runtime.onConnect.addListener(port => {
   if (port.name !== 'workbook' || port.sender?.url !== chrome.runtime.getURL('panel.html')) { port.disconnect(); return; }
-  const s = {port, tabId:null, provider:null, request:null};
+  const s = {port, tabId:null, provider:null, request:null, connections:new Map()};
   sessions.set(port,s);
   port.onDisconnect.addListener(() => { sessions.delete(port); release(s); });
   port.onMessage.addListener(async m => {
     try {
-      if (m.type === 'ping') { post(port,{type:'pong'}); return; }
+      if (m.type === 'ping') { post(port,{type:'pong'}); if(s.tabId && !s.ready && !s.navCheck && !s.connecting)recover(s); return; }
       if (m.type === 'list') {
         const p = BRIDGE_PROVIDERS[m.provider];
         if (!p) throw Error('未知服务');
         const tabs = (await chrome.tabs.query({})).filter(t => originProvider(t.url) === m.provider);
         post(port,{type:'tabs',provider:m.provider,tabs:tabs.map(t => ({id:t.id,title:t.title,url:t.url}))});
-      } else if (m.type === 'bind') {
+      } else if (m.type === 'bind' || m.type === 'ensure') {
         if(s.request) throw Error('请先停止同步再切换标签页');
         s.navCheck=null;s.bindOperation=m.operation;
-        const tab = await chrome.tabs.get(m.tabId).catch(()=>{throw Error('无法访问之前的 AI 标签页。聊天记录已保留，请打开对话页后重新连接。');});
+        const provider=BRIDGE_PROVIDERS[m.provider];if(!provider)throw Error('未知服务');
+        const live=()=>sessions.has(port) && s.bindOperation===m.operation;
+        const previous=s.connections.get(m.provider);
+        let created=false;
+        const targetId=m.tabId || previous?.tabId;
+        let tab=Number.isInteger(targetId) && targetId>0?await chrome.tabs.get(targetId).catch(()=>null):null;
+        if(!live())return;
+        if(!tab && m.type==='ensure' && m.create){
+          const granted=await chrome.permissions.contains({origins:provider.hosts.map(h=>'https://'+h+'/*')});
+          if(!granted)throw Error('首次使用需要授予所选 AI 的访问权限。');
+          tab=await chrome.tabs.create({url:provider.url,active:false});
+          tab={...tab,url:tab.pendingUrl || tab.url || provider.url};created=true;
+          if(!live())return;
+          post(port,{type:'session-tab',operation:m.operation,provider:m.provider,tabId:tab.id,title:provider.name+' · 工作台新对话'});
+        }
+        if(!tab)throw Error('之前的 AI 标签页已关闭，聊天记录保留；输入问题后可自动打开新对话。');
         if (originProvider(tab.url) !== m.provider) throw Error('官网标签页与所选服务不符');
         if (locks.has(tab.id) && locks.get(tab.id) !== s) throw Error('这个官网标签页正在被另一个工作台使用');
         await release(s);
+        if(!live())return;
         s.tabId=null; s.provider=null;
-        const live=()=>sessions.has(port) && s.bindOperation===m.operation;
         s.trace=[];
         const started=Date.now();
         const stage=message=>{
@@ -93,16 +108,32 @@ chrome.runtime.onConnect.addListener(port => {
           if(live()) post(port,{type:'stage',operation:m.operation,message,trace:s.trace});
         };
         stage(`扩展 ${chrome.runtime.getManifest().version}；标签页状态 ${tab.status || 'unknown'}；休眠 ${!!tab.discarded}；冻结 ${!!tab.frozen}`);
+        if(m.type==='ensure' && previous?.tabId===tab.id && previous.ready && JSON.stringify(previous.overrides || {})===JSON.stringify(m.overrides || {})){
+          const hello=await timed(chrome.tabs.sendMessage(tab.id,{type:'workbook:hello'},{frameId:0}),700,'检查原会话超时').catch(()=>null);
+          if(!live())return;
+          if(hello?.version===chrome.runtime.getManifest().version && hello?.documentId===previous.documentId && hello?.bindingToken===previous.bindingToken && !hello.requestId){
+            Object.assign(s,previous);
+            post(port,{type:'bound',operation:m.operation,provider:m.provider,tabId:tab.id,ready:true,reused:true,counts:previous.counts});return;
+          }
+        }
+        s.tabId=tab.id;s.provider=m.provider;s.overrides=m.overrides;s.ready=false;s.awaitLogin=created;s.connecting=true;
         await connectBridge(tab,live,stage);
         if(!live()) return;
         stage('握手成功，正在检查输入框与发送按钮');
-        const result = await timed(chrome.tabs.sendMessage(tab.id,{type:'workbook:inspect',provider:m.provider,overrides:m.overrides},{frameId:0}),1800,'脚本握手正常，但官网元素检查未回应。请保留诊断结果；没有发送消息。');
+        let result;
+        for(let attempt=0;attempt<(m.type==='ensure'?5:1);attempt++){
+          result=await timed(chrome.tabs.sendMessage(tab.id,{type:'workbook:inspect',provider:m.provider,overrides:m.overrides},{frameId:0}),1800,'脚本握手正常，但官网元素检查未回应。请保留诊断结果；没有发送消息。');
+          if(!live())return;
+          if(!result?.ok || result.ready)break;
+          if(attempt<4 && m.type==='ensure')await new Promise(resolve=>setTimeout(resolve,300));
+        }
         if(!result?.ok) throw Error(result?.error || '检查失败');
         if(!sessions.has(port) || s.bindOperation!==m.operation) return;
         s.tabId=tab.id; s.provider=m.provider; s.bindingToken=result.bindingToken;s.documentId=result.documentId;s.overrides=m.overrides;s.ready=result.ready;s.pendingInterruption=false;
+        s.connecting=false;s.counts=result.counts;if(s.ready)s.awaitLogin=false;cacheConnection(s);
         post(port,{type:'bound',operation:m.operation,tabId:tab.id,provider:m.provider,...result});
       } else if(m.type==='detach'){
-        s.navCheck=null;s.bindOperation=null;await release(s);s.tabId=null;s.provider=null;
+        s.navCheck=null;s.bindOperation=null;s.connecting=false;await release(s);s.tabId=null;s.provider=null;
       } else if (m.type === 'send') {
         if(s.navCheck) throw Error('正在恢复连接，请稍后发送');
         if(s.request) throw Error('已有请求正在同步，未重复发送');
@@ -123,7 +154,7 @@ chrome.runtime.onConnect.addListener(port => {
       } else if(m.type==='focus') {
         if(s.tabId) { const t=await chrome.tabs.update(s.tabId,{active:true}); await chrome.windows.update(t.windowId,{focused:true}); }
       }
-    } catch(error) { post(port,{type:'error',operation:m.operation,message:error.message,trace:m.type==='bind'?s.trace:undefined}); }
+    } catch(error) { if(s.bindOperation===m.operation)s.connecting=false;post(port,{type:'error',operation:m.operation,message:error.message,trace:['bind','ensure'].includes(m.type)?s.trace:undefined}); }
   });
 });
 chrome.runtime.onMessage.addListener((m,sender) => {
@@ -132,6 +163,9 @@ chrome.runtime.onMessage.addListener((m,sender) => {
   post(s.port,{type:'update',id:m.id,text:typeof m.text==='string'?m.text.slice(0,200000):'',status:m.status,terminal:!!m.terminal,error:!!m.error});
   if(m.terminal) { locks.delete(s.tabId); s.request=null; }
 });
+function cacheConnection(s){
+  s.connections?.set(s.provider,{provider:s.provider,tabId:s.tabId,bindingToken:s.bindingToken,documentId:s.documentId,overrides:s.overrides,ready:s.ready,counts:s.counts});
+}
 function invalidate(tabId,message='AI 标签页已关闭。聊天记录已保留；重新打开对话页后可继续。') {
   for(const s of sessions.values()) if(s.tabId===tabId) {
     s.navCheck=null;release(s);s.tabId=null;
@@ -145,6 +179,7 @@ async function recover(s) {
   try {
     const tab=await timed(chrome.tabs.get(tabId),1000,'标签页检查超时');
     if(!live())return;
+    if(originProvider(tab.url)!==s.provider && s.awaitLogin){s.ready=false;post(s.port,{type:'waiting-login',provider:s.provider,message:'请在新打开的 AI 页面完成登录，返回对话页后会自动继续。'});return;}
     if(originProvider(tab.url)!==s.provider){invalidate(tabId,'页面已离开所选 AI，连接已停止；聊天记录保留。');return;}
     const hello=await timed(chrome.tabs.sendMessage(tabId,{type:'workbook:hello'},{frameId:0}),700,'会话握手超时').catch(()=>null);
     if(!live())return;
@@ -165,8 +200,8 @@ async function recover(s) {
       if(i<4)await new Promise(resolve=>setTimeout(resolve,300));
     }
     if(!result?.ok || !result.ready)throw Error(result?.error || '页面尚未出现可用输入框；聊天记录保留。');
-    s.documentId=result.documentId;s.bindingToken=result.bindingToken;s.ready=true;
-    const interrupted=!!s.pendingInterruption;s.pendingInterruption=false;
+    s.documentId=result.documentId;s.bindingToken=result.bindingToken;s.ready=true;s.awaitLogin=false;
+    const interrupted=!!s.pendingInterruption;s.pendingInterruption=false;cacheConnection(s);
     post(s.port,{type:'reconnected',provider:s.provider,ready:true,busy:false,interrupted});
   }catch(error){
     if(live()){
@@ -178,5 +213,5 @@ async function recover(s) {
 chrome.tabs.onRemoved.addListener(id=>invalidate(id));
 chrome.tabs.onUpdated.addListener((id,change) => {
   if(change.status!=='loading' && change.status!=='complete' && !change.url)return;
-  return Promise.all([...sessions.values()].filter(s=>s.tabId===id).map(recover));
+  return Promise.all([...sessions.values()].filter(s=>s.tabId===id && !s.connecting).map(recover));
 });
