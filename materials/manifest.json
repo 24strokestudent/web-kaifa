@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "organizedOn": "2026-10-12",
+  "description": "User-provided original learning materials, copied without changing contents.",
+  "files": [
+    {
+      "path": "materials/archives/Web开发学习手册_教学详解版_资料包.zip",
+      "source": {
+        "fileName": "Web开发学习手册_教学详解版_资料包.zip"
+      },
+      "bytes": 119814,
+      "sha256": "c9c0404332033e5b2ae99cb0be7f647de1961b4c808f47824d0176fc6190f384"
+    },
+    {
+      "path": "materials/web/学习手册.html",
+      "source": {
+        "archive": "materials/archives/Web开发学习手册_教学详解版_资料包.zip",
+        "entry": "Web开发学习手册_前端与全栈_教学详解版.html"
+      },
+      "bytes": 336622,
+      "sha256": "059f3c497f99b2b6bbe9df1d0b463682b213a7ea76cfd400c99b48b26d4bd78a"
+    },
+    {
+      "path": "materials/web/学习路线.md",
+      "source": {
+        "archive": "materials/archives/Web开发学习手册_教学详解版_资料包.zip",
+        "entry": "Web开发学习路线_前端与全栈_教学详解版.md"
+      },
+      "bytes": 122818,
+      "sha256": "03f60f3a3db6b33aadb35788cdb22a5612cc9608d00adab1039cddd5796806ab"
+    },
+    {
+      "path": "materials/go/28天互动学习手册.html",
+      "source": {
+        "fileName": "Go后端从零到项目_28天互动学习手册.html"
+      },
+      "bytes": 314442,
+      "sha256": "8711e2c2161dff4753b837464de926ea47e4c9f894c76963742737fe02b71e40"
+    },
+    {
+      "path": "materials/go/完整学习清单.md",
+      "source": {
+        "fileName": "Go后端学习清单_完整Markdown版.md"
+      },
+      "bytes": 142133,
+      "sha256": "d2047afc38562b9331b69eccc192726c25c9b5dc8b383a6e76aa0970abaad505"
+    }
+  ]
+}

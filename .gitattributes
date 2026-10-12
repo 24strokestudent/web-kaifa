@@ -1,0 +1,12 @@
+* text=auto
+*.md text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.go text eol=lf
+*.zip binary
+
+# Preserve the supplied learning materials byte for byte.
+materials/web/*.html -text
+materials/web/*.md -text
+materials/go/*.html -text
+materials/go/*.md -text
